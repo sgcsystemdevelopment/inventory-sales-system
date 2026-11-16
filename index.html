@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Inventory & Sales Management System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Ambient Background Overlay -->
+  <div class="bg-overlay"></div>
+
+  <!-- Top Navigation / Theme Toggle -->
+  <header class="top-bar">
+    <div class="system-tag">
+      <img src="logo.png" alt="Simpal Logo" class="topbar-logo-img">
+      <span>SIMPAL GROUP &bull; INVENTORY &amp; POS</span>
+    </div>
+    <button id="themeToggleBtn" class="icon-btn" title="Toggle Theme" aria-label="Toggle theme">
+      <i class="fa-regular fa-moon" id="themeIcon"></i>
+    </button>
+  </header>
+
+  <!-- Centered Login Card -->
+  <main class="login-wrapper">
+    <div class="login-card">
+      
+      <!-- Brand Header -->
+      <div class="card-header">
+        <div class="brand-logo-container">
+          <img src="logo.png" alt="Simpal Group of Companies Logo" id="mainLogo" class="brand-logo-img">
+        </div>
+        <h1 class="brand-title">Inventory &amp; Sales System</h1>
+        <p class="brand-subtitle">Simpal Group of Companies &bull; Authorized Portal</p>
+      </div>
+
+      <!-- Notification Message Box -->
+      <div id="alertBox" class="alert-box" role="alert" style="display: none;">
+        <i id="alertIcon" class="fa-solid fa-circle-exclamation"></i>
+        <span id="alertMessage">Message</span>
+      </div>
+
+      <!-- Login Form -->
+      <form id="loginForm" novalidate>
+        <!-- Username / Email Field -->
+        <div class="input-group">
+          <label for="usernameInput">Username or Email</label>
+          <div class="input-wrapper">
+            <i class="fa-regular fa-user input-icon"></i>
+            <input 
+              type="text" 
+              id="usernameInput" 
+              name="username" 
+              placeholder="e.g. admin@inventory.com" 
+              required 
+              autocomplete="username"
+            >
+          </div>
+          <span class="field-error" id="usernameError"></span>
+        </div>
+
+        <!-- Password Field -->
+        <div class="input-group">
+          <div class="label-row">
+            <label for="passwordInput">Password</label>
+            <a href="#" id="forgotPasswordBtn" class="forgot-link">Forgot password?</a>
+          </div>
+          <div class="input-wrapper">
+            <i class="fa-solid fa-lock input-icon"></i>
+            <input 
+              type="password" 
+              id="passwordInput" 
+              name="password" 
+              placeholder="••••••••••••" 
+              required 
+              autocomplete="current-password"
+            >
+            <button 
+              type="button" 
+              id="togglePasswordBtn" 
+              class="password-toggle-btn" 
+              title="Show or hide password"
+              aria-label="Toggle password visibility"
+            >
+              <i class="fa-regular fa-eye" id="togglePasswordIcon"></i>
+            </button>
+          </div>
+          <span class="field-error" id="passwordError"></span>
+        </div>
+
+        <!-- Role Selection -->
+        <div class="input-group">
+          <label for="roleSelect">Sign In As</label>
+          <div class="input-wrapper select-wrapper">
+            <i class="fa-solid fa-user-shield input-icon"></i>
+            <select id="roleSelect" name="role">
+              <option value="admin">Administrator (Full Access)</option>
+              <option value="manager">Inventory Manager (Stock &amp; Supply)</option>
+              <option value="cashier">Cashier / Sales Associate (POS)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Remember Me Checkbox -->
+        <div class="form-meta">
+          <label class="checkbox-container">
+            <input type="checkbox" id="rememberMeCheckbox" name="rememberMe" checked>
+            <span class="checkmark"></span>
+            <span class="checkbox-label">Keep me signed in</span>
+          </label>
+        </div>
+
+        <!-- Submit Button -->
+        <button type="submit" id="submitBtn" class="btn-primary">
+          <span class="btn-text">Sign In to Dashboard</span>
+          <span class="btn-spinner" aria-hidden="true">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+          </span>
+          <i class="fa-solid fa-arrow-right btn-icon"></i>
+        </button>
+      </form>
+
+      <!-- Quick Demo Credentials -->
+      <div class="demo-section">
+        <div class="divider">
+          <span>Quick Demo Access</span>
+        </div>
+        <div class="demo-buttons">
+          <button type="button" class="demo-btn" data-user="admin@inventory.com" data-role="admin" title="Quick fill Admin">
+            <i class="fa-solid fa-crown"></i>
+            <span>Admin</span>
+          </button>
+          <button type="button" class="demo-btn" data-user="manager@inventory.com" data-role="manager" title="Quick fill Manager">
+            <i class="fa-solid fa-warehouse"></i>
+            <span>Inventory</span>
+          </button>
+          <button type="button" class="demo-btn" data-user="cashier@inventory.com" data-role="cashier" title="Quick fill Cashier">
+            <i class="fa-solid fa-cash-register"></i>
+            <span>Cashier</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="card-footer">
+        <p>&copy; 2026 Inventory &amp; Sales System</p>
+        <p class="developer-credit">Design and Develop by: <span>danpastolero</span></p>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Forgot Password Modal -->
+  <div id="forgotModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-overlay" id="modalOverlay"></div>
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-icon-badge">
+          <i class="fa-solid fa-key"></i>
+        </div>
+        <h3 id="modalTitle">Reset Password</h3>
+        <p>Enter your work email address and we will send you a reset link or notify your system administrator.</p>
+      </div>
+
+      <form id="forgotForm">
+        <div class="input-group">
+          <label for="resetEmailInput">Account Email Address</label>
+          <div class="input-wrapper">
+            <i class="fa-regular fa-envelope input-icon"></i>
+            <input type="email" id="resetEmailInput" placeholder="name@inventory.com" required>
+          </div>
+        </div>
+        
+        <div class="modal-actions">
+          <button type="button" id="closeModalBtn" class="btn-secondary">Cancel</button>
+          <button type="submit" id="sendResetBtn" class="btn-primary">
+            <span>Send Reset Link</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
