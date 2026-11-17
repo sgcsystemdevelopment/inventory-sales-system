@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inventory &amp; Stock Management - Simpal System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="inventory.css">
+</head>
+<body>
+
+  <!-- ===================== SIDEBAR ===================== -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <img src="logo.png" alt="Simpal Logo" class="sidebar-logo" id="sidebarLogo">
+      <button class="sidebar-close-btn" id="sidebarCloseBtn" aria-label="Close sidebar">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-label">Main</div>
+      <a href="dashboard.html" class="nav-item">
+        <i class="fa-solid fa-gauge-high"></i>
+        <span>Dashboard</span>
+      </a>
+      <a href="inventory.html" class="nav-item active">
+        <i class="fa-solid fa-boxes-stacked"></i>
+        <span>Inventory</span>
+      </a>
+      <a href="#" class="nav-item">
+        <i class="fa-solid fa-file-invoice-dollar"></i>
+        <span>Sales Reports</span>
+      </a>
+
+      <!-- Stocks Group -->
+      <div class="nav-label">Stocks</div>
+      <div class="sidebar-stocks-list" id="sidebarStocksList">
+        <span class="sidebar-stock-empty">No stocks added yet.</span>
+      </div>
+
+      <div class="nav-label">Finance</div>
+      <a href="#" class="nav-item">
+        <i class="fa-solid fa-money-bill-wave"></i>
+        <span>Expenses</span>
+      </a>
+      <a href="#" class="nav-item">
+        <i class="fa-solid fa-receipt"></i>
+        <span>Transactions</span>
+      </a>
+
+      <div class="nav-label">System</div>
+      <a href="#" class="nav-item">
+        <i class="fa-solid fa-users"></i>
+        <span>User Management</span>
+      </a>
+      <a href="#" class="nav-item">
+        <i class="fa-solid fa-gear"></i>
+        <span>Settings</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <a href="index.html" class="nav-item logout-btn" id="logoutBtn">
+        <i class="fa-solid fa-right-from-bracket"></i>
+        <span>Logout</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- Mobile Overlay -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <!-- ===================== MAIN LAYOUT ===================== -->
+  <div class="main-layout" id="mainLayout">
+
+    <!-- TOP NAVIGATION -->
+    <header class="topnav">
+      <div class="topnav-left">
+        <button class="menu-btn" id="menuBtn" aria-label="Toggle menu">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+        <div class="page-title">
+          <h1>Inventory Management</h1>
+          <p>Add, Track &amp; Manage Product Stocks</p>
+        </div>
+      </div>
+
+      <div class="topnav-right">
+        <!-- Main Quick Action Button -->
+        <button class="btn-primary-header" id="topInputStockBtn">
+          <i class="fa-solid fa-plus"></i>
+          <span>Input Stock</span>
+        </button>
+
+        <!-- Theme Toggle -->
+        <button id="themeToggleBtn" class="icon-btn" title="Toggle Theme" aria-label="Toggle theme">
+          <i class="fa-regular fa-moon" id="themeIcon"></i>
+        </button>
+
+        <!-- User Avatar with Session tooltip -->
+        <div class="user-avatar" id="userAvatar" title="Logged in as Admin">
+          <i class="fa-solid fa-user-tie"></i>
+        </div>
+      </div>
+    </header>
+
+    <!-- PAGE CONTENT -->
+    <main class="page-content">
+
+      <!-- ===================== METRIC SUMMARY CARDS ===================== -->
+      <section class="stock-summary-grid">
+        <!-- Total Items -->
+        <div class="stock-card total-items">
+          <div class="stock-card-icon">
+            <i class="fa-solid fa-boxes-stacked"></i>
+          </div>
+          <div class="stock-card-info">
+            <span class="stock-card-label">Total Items</span>
+            <div class="stock-card-val" id="statTotalItems">0</div>
+            <div class="stock-card-sub">Unique catalog products</div>
+          </div>
+        </div>
+
+        <!-- Total Units in Stock -->
+        <div class="stock-card total-qty">
+          <div class="stock-card-icon">
+            <i class="fa-solid fa-cubes"></i>
+          </div>
+          <div class="stock-card-info">
+            <span class="stock-card-label">Total Stock Units</span>
+            <div class="stock-card-val" id="statTotalQty">0</div>
+            <div class="stock-card-sub">Sum of all item inventories</div>
+          </div>
+        </div>
+
+        <!-- Total Stock Valuation -->
+        <div class="stock-card total-val">
+          <div class="stock-card-icon">
+            <i class="fa-solid fa-peso-sign"></i>
+          </div>
+          <div class="stock-card-info">
+            <span class="stock-card-label">Inventory Valuation</span>
+            <div class="stock-card-val" id="statTotalValue">₱0.00</div>
+            <div class="stock-card-sub">Total stock asset value</div>
+          </div>
+        </div>
+
+        <!-- Low Stock Alerts -->
+        <div class="stock-card low-stock">
+          <div class="stock-card-icon">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+          </div>
+          <div class="stock-card-info">
+            <span class="stock-card-label">Low Stock Alerts</span>
+            <div class="stock-card-val" id="statLowStock">0</div>
+            <div class="stock-card-sub">Items requiring reorder (&lt; 10)</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== MANAGE STOCKS TABLE CARD ===================== -->
+      <section class="table-card">
+        <div class="table-header">
+          <div>
+            <h3>Stock Masterlist</h3>
+            <p>Manage batches, pricing, and stock levels</p>
+          </div>
+
+          <div class="inventory-filters">
+            <!-- Search by Name or Batch -->
+            <div class="search-box">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="text" id="stockSearch" placeholder="Search item or batch...">
+            </div>
+
+            <!-- Status Filter -->
+            <select id="statusFilter" class="filter-select">
+              <option value="all">All Statuses</option>
+              <option value="in-stock">In Stock (&gt;10)</option>
+              <option value="low-stock">Low Stock (1-10)</option>
+              <option value="out-of-stock">Out of Stock (0)</option>
+            </select>
+
+            <!-- Export CSV -->
+            <button class="btn-export" id="exportCsvBtn" title="Export to CSV">
+              <i class="fa-solid fa-file-csv"></i>
+              <span>Export</span>
+            </button>
+
+            <!-- Input Stock CTA -->
+            <button class="btn-primary-header" id="tableInputStockBtn">
+              <i class="fa-solid fa-plus"></i>
+              <span>Input Stock</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 50px;">#</th>
+                <th>Date &amp; Time</th>
+                <th>Batch #</th>
+                <th>Item / Product Name</th>
+                <th style="text-align: right;">Stocks</th>
+                <th style="text-align: right;">Unit Price</th>
+                <th style="text-align: right;">Total Value</th>
+                <th style="text-align: center;">Status</th>
+                <th style="text-align: center; width: 120px;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="stocksTableBody">
+              <!-- Dynamically populated by inventory.js -->
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-pagination">
+          <span id="stockTableInfo">Showing 0 of 0 records</span>
+          <div class="pagination-btns">
+            <button class="page-btn" id="prevStockPage" disabled><i class="fa-solid fa-chevron-left"></i></button>
+            <span id="stockPageNum">1 / 1</span>
+            <button class="page-btn" id="nextStockPage" disabled><i class="fa-solid fa-chevron-right"></i></button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="dash-footer">
+      <p>&copy; 2026 Inventory &amp; Sales System &bull; Simpal Group of Companies</p>
+      <p class="dev-credit">Design and Develop by: <span>danpastolero</span></p>
+    </footer>
+
+  </div><!-- end .main-layout -->
+
+  <!-- ===================== INPUT / MANAGE STOCK MODAL ===================== -->
+  <div class="stock-modal" id="stockModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="stock-modal-overlay" id="modalOverlay"></div>
+    <div class="stock-modal-card">
+      
+      <div class="modal-title-row">
+        <div>
+          <h3 id="modalTitle">Input New Stock</h3>
+          <p id="modalSubtitle">Add inventory stock details with batch, date, quantity, and unit price</p>
+        </div>
+        <button class="modal-close-icon-btn" id="closeModalBtn" aria-label="Close">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="stockForm" novalidate>
+        <input type="hidden" id="editStockId" value="">
+
+        <div class="stock-form-grid">
+          
+          <!-- 1. DATE (TIMESTAMP) -->
+          <div class="form-field">
+            <label for="stockDate">Date &amp; Time (Timestamp) *</label>
+            <div class="form-input-wrapper">
+              <i class="fa-regular fa-clock field-icon"></i>
+              <input type="datetime-local" id="stockDate" required>
+            </div>
+          </div>
+
+          <!-- 2. BATCH NUMBER -->
+          <div class="form-field">
+            <label for="stockBatch">Batch Number *</label>
+            <div class="form-input-wrapper">
+              <i class="fa-solid fa-barcode field-icon"></i>
+              <input type="text" id="stockBatch" placeholder="e.g. BATCH-2026-001" required>
+              <button type="button" class="btn-auto-batch" id="btnAutoBatch" title="Generate next batch code">
+                Auto
+              </button>
+            </div>
+          </div>
+
+          <!-- 3. ITEM / PRODUCT NAME -->
+          <div class="form-field full-width">
+            <label for="stockName">Product / Item Name *</label>
+            <div class="form-input-wrapper">
+              <i class="fa-solid fa-box-open field-icon"></i>
+              <input type="text" id="stockName" placeholder="e.g. Thermal Paper Roll 80x70mm, Barcode Scanner, etc." required>
+            </div>
+          </div>
+
+          <!-- 4. STOCKS QUANTITY -->
+          <div class="form-field">
+            <label for="stockQty">Stock Quantity *</label>
+            <div class="form-input-wrapper">
+              <i class="fa-solid fa-layer-group field-icon"></i>
+              <input type="number" id="stockQty" min="0" step="1" placeholder="e.g. 50" required>
+            </div>
+          </div>
+
+          <!-- 5. UNIT PRICE -->
+          <div class="form-field">
+            <label for="stockPrice">Unit Price (₱) *</label>
+            <div class="form-input-wrapper">
+              <i class="fa-solid fa-peso-sign field-icon"></i>
+              <input type="number" id="stockPrice" min="0" step="0.01" placeholder="e.g. 250.00" required>
+            </div>
+          </div>
+
+          <!-- Dynamic Valuation Preview -->
+          <div class="stock-value-preview">
+            <span class="value-preview-label">
+              <i class="fa-solid fa-calculator"></i> Total Stock Valuation Preview:
+            </span>
+            <span class="value-preview-val" id="previewTotalVal">₱0.00</span>
+          </div>
+
+        </div>
+
+        <div class="modal-btn-actions">
+          <button type="button" class="btn-modal-cancel" id="cancelModalBtn">Cancel</button>
+          <button type="submit" class="btn-modal-submit" id="saveStockBtn">
+            <i class="fa-solid fa-check"></i>
+            <span id="saveBtnText">Save Stock</span>
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== QUICK RESTOCK MODAL ===================== -->
+  <div class="stock-modal" id="quickRestockModal" role="dialog" aria-modal="true">
+    <div class="stock-modal-overlay" id="quickRestockOverlay"></div>
+    <div class="stock-modal-card" style="max-width: 420px;">
+      <div class="modal-title-row">
+        <div>
+          <h3>Quick Restock</h3>
+          <p id="restockItemName">Add units to current inventory</p>
+        </div>
+        <button class="modal-close-icon-btn" id="closeRestockModalBtn">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="quickRestockForm">
+        <input type="hidden" id="restockStockId">
+        <div class="form-field" style="margin-bottom: 1.25rem;">
+          <label for="addUnitsInput">Units to Add *</label>
+          <div class="form-input-wrapper">
+            <i class="fa-solid fa-plus field-icon"></i>
+            <input type="number" id="addUnitsInput" min="1" step="1" value="10" required>
+          </div>
+        </div>
+
+        <div class="modal-btn-actions">
+          <button type="button" class="btn-modal-cancel" id="cancelRestockBtn">Cancel</button>
+          <button type="submit" class="btn-modal-submit">
+            <i class="fa-solid fa-plus"></i>
+            <span>Add Stock</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== CHECKOUT MODAL ===================== -->
+  <div class="stock-modal" id="checkoutModal" role="dialog" aria-modal="true" style="display:none;">
+    <div class="stock-modal-overlay" id="checkoutModalOverlay"></div>
+    <div class="stock-modal-card" style="max-width:500px;padding:0 0 1.5rem;">
+      <div class="modal-title-row" style="padding:1.25rem 1.5rem 1rem;">
+        <div>
+          <h3 style="margin:0 0 2px;">Checkout</h3>
+          <p id="checkoutSubtitle" style="margin:0;font-size:0.8rem;color:var(--text-muted);">Select quantity and confirm sale</p>
+        </div>
+        <button class="modal-close-icon-btn" id="closeCheckoutBtn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <!-- Product Banner -->
+      <div class="checkout-product-banner">
+        <div class="checkout-product-icon"><i class="fa-solid fa-box"></i></div>
+        <div class="checkout-product-details">
+          <h4 id="coProductName">—</h4>
+          <div class="checkout-product-meta">
+            <span class="co-price-pill" id="coUnitPrice">₱0.00/unit</span>
+            <span class="co-stock-badge" id="coStockAvail">0 units available</span>
+          </div>
+          <span class="batch-tag" id="coBatchTag">—</span>
+        </div>
+      </div>
+      <!-- Form Body -->
+      <div class="checkout-form-body">
+        <div class="form-field">
+          <label>Quantity</label>
+          <div class="qty-stepper-wrap">
+            <button type="button" class="stepper-btn" id="coQtyMinus"><i class="fa-solid fa-minus"></i></button>
+            <input type="number" id="coQtyInput" min="1" value="1">
+            <button type="button" class="stepper-btn" id="coQtyPlus"><i class="fa-solid fa-plus"></i></button>
+          </div>
+        </div>
+        <div class="form-field">
+          <label>Discount (₱)</label>
+          <div class="form-input-wrapper">
+            <i class="fa-solid fa-tag field-icon"></i>
+            <input type="number" id="coDiscountInput" min="0" step="0.01" value="0" placeholder="0.00">
+          </div>
+        </div>
+        <div class="checkout-summary-box">
+          <div class="co-summary-row"><span>Subtotal</span><span id="coSubtotal">₱0.00</span></div>
+          <div class="co-summary-row discount"><span>Discount</span><span id="coDiscount">-₱0.00</span></div>
+          <div class="co-summary-row grand-total"><span>Total</span><span id="coGrandTotal">₱0.00</span></div>
+        </div>
+      </div>
+      <div class="modal-btn-actions" style="padding:0 1.5rem 0;margin-top:1rem;">
+        <button class="btn-modal-cancel" id="cancelCheckoutBtn">Cancel</button>
+        <button class="btn-modal-submit" id="confirmCheckoutBtn">
+          <i class="fa-solid fa-check"></i> Confirm Checkout
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast-notice" id="toastNotice">
+    <i class="fa-solid fa-circle-check" id="toastIcon"></i>
+    <span id="toastMsg">Stock saved successfully!</span>
+  </div>
+
+  <script type="module" src="inventory.js"></script>
+</body>
+</html>

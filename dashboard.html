@@ -27,22 +27,19 @@
         <i class="fa-solid fa-gauge-high"></i>
         <span>Dashboard</span>
       </a>
-      <a href="#" class="nav-item">
+      <a href="inventory.html" class="nav-item">
         <i class="fa-solid fa-boxes-stacked"></i>
         <span>Inventory</span>
-      </a>
-      <a href="#" class="nav-item">
-        <i class="fa-solid fa-cash-register"></i>
-        <span>Point of Sale</span>
       </a>
       <a href="#" class="nav-item">
         <i class="fa-solid fa-file-invoice-dollar"></i>
         <span>Sales Reports</span>
       </a>
-      <a href="#" class="nav-item">
-        <i class="fa-solid fa-truck"></i>
-        <span>Suppliers</span>
-      </a>
+
+      <div class="nav-label">Stocks</div>
+      <div class="sidebar-stocks-list" id="sidebarStocksList">
+        <span class="sidebar-stock-empty">No stocks added yet.</span>
+      </div>
 
       <div class="nav-label">Finance</div>
       <a href="#" class="nav-item">
@@ -325,6 +322,67 @@
     </footer>
 
   </div><!-- end .main-layout -->
+
+  <!-- ===================== CHECKOUT MODAL ===================== -->
+  <div class="stock-modal" id="checkoutModal" role="dialog" aria-modal="true" style="display:none;">
+    <div class="stock-modal-overlay" id="checkoutModalOverlay"></div>
+    <div class="stock-modal-card" style="max-width:500px;padding:0 0 1.5rem;">
+      <div class="modal-title-row" style="padding:1.25rem 1.5rem 1rem;">
+        <div>
+          <h3 style="margin:0 0 2px;">Checkout</h3>
+          <p id="checkoutSubtitle" style="margin:0;font-size:0.8rem;color:var(--text-muted);">Select quantity and confirm sale</p>
+        </div>
+        <button class="modal-close-icon-btn" id="closeCheckoutBtn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <!-- Product Banner -->
+      <div class="checkout-product-banner">
+        <div class="checkout-product-icon"><i class="fa-solid fa-box"></i></div>
+        <div class="checkout-product-details">
+          <h4 id="coProductName">—</h4>
+          <div class="checkout-product-meta">
+            <span class="co-price-pill" id="coUnitPrice">₱0.00/unit</span>
+            <span class="co-stock-badge" id="coStockAvail">0 units available</span>
+          </div>
+          <span class="batch-tag" id="coBatchTag">—</span>
+        </div>
+      </div>
+      <!-- Form Body -->
+      <div class="checkout-form-body">
+        <div class="form-field">
+          <label>Quantity</label>
+          <div class="qty-stepper-wrap">
+            <button type="button" class="stepper-btn" id="coQtyMinus"><i class="fa-solid fa-minus"></i></button>
+            <input type="number" id="coQtyInput" min="1" value="1">
+            <button type="button" class="stepper-btn" id="coQtyPlus"><i class="fa-solid fa-plus"></i></button>
+          </div>
+        </div>
+        <div class="form-field">
+          <label>Discount (₱)</label>
+          <div class="form-input-wrapper">
+            <i class="fa-solid fa-tag field-icon"></i>
+            <input type="number" id="coDiscountInput" min="0" step="0.01" value="0" placeholder="0.00">
+          </div>
+        </div>
+        <div class="checkout-summary-box">
+          <div class="co-summary-row"><span>Subtotal</span><span id="coSubtotal">₱0.00</span></div>
+          <div class="co-summary-row discount"><span>Discount</span><span id="coDiscount">-₱0.00</span></div>
+          <div class="co-summary-row grand-total"><span>Total</span><span id="coGrandTotal">₱0.00</span></div>
+        </div>
+      </div>
+      <div class="modal-btn-actions" style="padding:0 1.5rem 0;margin-top:1rem;">
+        <button class="btn-modal-cancel" id="cancelCheckoutBtn">Cancel</button>
+        <button class="btn-modal-submit" id="confirmCheckoutBtn">
+          <i class="fa-solid fa-check"></i> Confirm Checkout
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast-notice" id="toastNotice" style="display:none;">
+    <i class="fa-solid fa-circle-check" id="toastIcon"></i>
+    <span id="toastMsg">Done!</span>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script type="module" src="dashboard.js"></script>

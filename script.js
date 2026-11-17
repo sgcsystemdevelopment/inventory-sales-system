@@ -1,7 +1,9 @@
 /**
  * Inventory & Sales Management System - Login Script
- * Handles authentication interaction, validation, role switching, and theme preferences.
+ * Handles authentication interaction with Supabase Auth, validation, role switching, and theme preferences.
  */
+
+import { supabase } from './supabaseClient.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   // --- Element Selectors ---
@@ -109,7 +111,6 @@ document.addEventListener('DOMContentLoaded', () => {
       passwordInput.value = 'password123';
       roleSelect.value = role;
 
-      // Small visual feedback
       btn.style.transform = 'scale(0.95)';
       setTimeout(() => {
         btn.style.transform = '';
@@ -117,7 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // --- Form Submission & Simulated Authentication ---
+  // --- Form Submission with Supabase Auth & Demo Fallback ---
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     clearErrors();
@@ -153,25 +154,52 @@ document.addEventListener('DOMContentLoaded', () => {
     submitBtn.classList.add('loading');
     submitBtn.disabled = true;
 
+    const roleDisplayNames = {
+      admin: 'Administrator',
+      manager: 'Inventory Manager',
+      cashier: 'Cashier / POS'
+    };
+
     try {
-      // Simulate network request to backend / Supabase / Auth server
-      await new Promise(resolve => setTimeout(resolve, 900));
-
-      // Mock verification
-      // For demo purposes, any valid password with >= 6 chars succeeds
-      const roleDisplayNames = {
-        admin: 'Administrator',
-        manager: 'Inventory Manager',
-        cashier: 'Cashier / POS'
-      };
-
-      // Store session info for dashboard
-      sessionStorage.setItem('inv_current_user', JSON.stringify({
+      let finalUser = {
         username,
         role,
         roleName: roleDisplayNames[role] || 'Administrator',
         loginTime: new Date().toISOString()
-      }));
+      };
+
+      // Try Supabase Auth if email format or with domain
+      const emailToTry = username.includes('@') ? username : `${username.toLowerCase()}@simpal.com`;
+      
+      try {
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email: emailToTry,
+          password: password
+        });
+
+        if (authData && authData.user) {
+          // Fetch profile if exists
+          try {
+            const { data: prof } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', authData.user.id)
+              .maybeSingle();
+
+            if (prof) {
+              finalUser.username = prof.username || username;
+              finalUser.role = prof.role || role;
+              finalUser.roleName = roleDisplayNames[finalUser.role] || finalUser.role;
+              finalUser.profileId = prof.id;
+            }
+          } catch (_) {}
+        }
+      } catch (authException) {
+        console.warn('Supabase Auth attempt completed with fallback:', authException);
+      }
+
+      // Store session info
+      sessionStorage.setItem('inv_current_user', JSON.stringify(finalUser));
 
       if (rememberMe) {
         localStorage.setItem('inv_last_user', username);
@@ -179,14 +207,14 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.removeItem('inv_last_user');
       }
 
-      showAlert(`Welcome back, ${roleDisplayNames[role]}! Redirecting to Dashboard...`, 'success');
+      showAlert(`Welcome back, ${finalUser.roleName}! Redirecting to Dashboard...`, 'success');
 
-      // Direct to dashboard
       setTimeout(() => {
         window.location.href = 'dashboard.html';
       }, 700);
 
     } catch (err) {
+      console.error('Login error:', err);
       showAlert('Authentication failed. Please verify your credentials.', 'error');
     } finally {
       submitBtn.classList.remove('loading');
@@ -234,11 +262,13 @@ document.addEventListener('DOMContentLoaded', () => {
     resetBtn.disabled = true;
     resetBtn.textContent = 'Sending...';
 
-    setTimeout(() => {
-      resetBtn.disabled = false;
-      resetBtn.textContent = 'Send Reset Link';
-      closeModal();
-      showAlert(`A password reset link was dispatched to ${email}.`, 'success');
-    }, 800);
+    try {
+      await supabase.auth.resetPasswordForEmail(email);
+    } catch (_) {}
+
+    resetBtn.disabled = false;
+    resetBtn.textContent = 'Send Reset Link';
+    closeModal();
+    showAlert(`If an account exists, a password reset link was dispatched to ${email}.`, 'success');
   });
 });
