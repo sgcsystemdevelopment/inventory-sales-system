@@ -1,12 +1,63 @@
 /**
  * Dashboard Script — Inventory & Sales System
  * Handles: Theme, Sidebar, Charts (Chart.js), Summary cards, Transactions table,
- * Supabase live metrics, and Stocks checkout modal.
+ * Supabase live metrics, and Stocks checkout modal (synced with Inventory).
  */
 
 import { supabase } from './supabaseClient.js';
 
-document.addEventListener('DOMContentLoaded', async () => {
+const initDashboard = async () => {
+
+  let salesChart = null;
+  let breakdownChart = null;
+
+  // ── DATA PERSISTENCE & SUPABASE SYNC (MATCHING INVENTORY) ─────────────────
+  const STORAGE_KEY = 'inv_stocks_data';
+
+  const defaultSeedStocks = [
+    {
+      id: 'stk_1',
+      date: '2026-11-17T09:15',
+      batch: 'BATCH-2026-001',
+      name: 'Thermal Paper Roll 80x70mm (Box of 50)',
+      stocks: 85,
+      price: 1850.00
+    },
+    {
+      id: 'stk_2',
+      date: '2026-11-17T08:30',
+      batch: 'BATCH-2026-002',
+      name: 'Wireless 2D Barcode Scanner Handheld',
+      stocks: 18,
+      price: 2450.00
+    },
+    {
+      id: 'stk_3',
+      date: '2026-11-16T14:20',
+      batch: 'BATCH-2026-003',
+      name: 'Heavy Duty Cash Drawer 5-Bill / 8-Coin RJ11',
+      stocks: 7,
+      price: 3200.00
+    },
+    {
+      id: 'stk_4',
+      date: '2026-11-15T11:45',
+      batch: 'BATCH-2026-004',
+      name: 'Direct Thermal Barcode Sticker 100x150mm',
+      stocks: 140,
+      price: 420.00
+    },
+    {
+      id: 'stk_5',
+      date: '2026-11-14T16:10',
+      batch: 'BATCH-2026-005',
+      name: 'POS Touch Monitor 15.6 inch Capacitive',
+      stocks: 0,
+      price: 12500.00
+    }
+  ];
+
+  let inMemoryStocks = [];
 
   // ── ELEMENT REFS ─────────────────────────────────────────────────────────
   const themeToggleBtn  = document.getElementById('themeToggleBtn');
@@ -41,21 +92,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('inv_theme', theme);
     if (theme === 'dark') {
-      themeIcon.className = 'fa-regular fa-sun';
+      if (themeIcon) themeIcon.className = 'fa-regular fa-sun';
       if (sidebarLogo) sidebarLogo.style.filter = 'brightness(0) invert(1)';
     } else {
-      themeIcon.className = 'fa-regular fa-moon';
+      if (themeIcon) themeIcon.className = 'fa-regular fa-moon';
       if (sidebarLogo) sidebarLogo.style.filter = 'brightness(0) invert(1)';
     }
-    updateChartTheme(theme);
+    updateChartTheme();
   };
 
-  themeToggleBtn.addEventListener('click', () => {
-    const current = document.documentElement.getAttribute('data-theme') || 'light';
-    applyTheme(current === 'dark' ? 'light' : 'dark');
-  });
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme') || 'light';
+      applyTheme(current === 'dark' ? 'light' : 'dark');
+    });
+  }
 
   initTheme();
+
+  // ── IMMEDIATELY POPULATE SIDEBAR STOCKS ──────────────────────────────────
+  renderSidebarStocks();
+  loadStocks();
 
   // ── SIDEBAR TOGGLE ────────────────────────────────────────────────────────
   const openSidebar = () => {
@@ -70,15 +127,419 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.body.style.overflow = '';
   };
 
-  menuBtn.addEventListener('click', openSidebar);
-  sidebarCloseBtn.addEventListener('click', closeSidebar);
-  sidebarOverlay.addEventListener('click', closeSidebar);
+  if (menuBtn) menuBtn.addEventListener('click', openSidebar);
+  if (sidebarCloseBtn) sidebarCloseBtn.addEventListener('click', closeSidebar);
+  if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
 
   // ── CURRENCY FORMATTER ────────────────────────────────────────────────────
   const currency = (val) =>
     '₱' + Number(val || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  // ── FETCH SUPABASE DATA (WITH SEED/MOCK FALLBACK) ─────────────────────────
+  function getLocalStocks() {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultSeedStocks));
+      return defaultSeedStocks;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultSeedStocks));
+      return defaultSeedStocks;
+    } catch (e) {
+      return defaultSeedStocks;
+    }
+  }
+
+  function getStocks() {
+    return inMemoryStocks.length ? inMemoryStocks : getLocalStocks();
+  }
+
+  function syncLocal(stocks) {
+    inMemoryStocks = stocks;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stocks));
+    renderSidebarStocks();
+  }
+
+  async function loadStocks() {
+    try {
+      const { data, error } = await supabase
+        .from('stock_items')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && Array.isArray(data) && data.length > 0) {
+        const mapped = data.map(item => ({
+          id: item.id,
+          date: item.date_added || item.created_at,
+          batch: item.batch,
+          name: item.name,
+          stocks: Number(item.quantity) || 0,
+          price: parseFloat(item.unit_price) || 0,
+          createdAt: item.created_at,
+          updatedAt: item.updated_at
+        }));
+        syncLocal(mapped);
+        return;
+      }
+    } catch (err) {
+      console.warn('Supabase stock fetch fallback:', err);
+    }
+
+    const local = getLocalStocks();
+    syncLocal(local);
+  }
+
+  // ── RENDER SIDEBAR STOCKS ────────────────────────────────────────────────
+  function renderSidebarStocks() {
+    const container = document.getElementById('sidebarStocksList');
+    if (!container) return;
+    const stocks = getStocks();
+    if (!Array.isArray(stocks) || stocks.length === 0) {
+      container.innerHTML = '<span class="sidebar-stock-empty">No stocks added yet.</span>';
+      return;
+    }
+    container.innerHTML = stocks.map(item => {
+      const qty = Number(item.stocks) || 0;
+      const cls = qty === 0 ? 'out-of-stock' : qty <= 10 ? 'low-stock' : '';
+      const badgeLabel = qty === 0 ? 'Out' : (qty <= 10 ? qty + ' low' : qty);
+      return `<div class="sidebar-stock-item ${cls}" data-id="${item.id}" title="${item.name}">
+        <span class="stock-icon"><i class="fa-solid fa-box-open"></i></span>
+        <span class="stock-item-name">${item.name}</span>
+        <span class="stock-item-badge">${badgeLabel}</span>
+      </div>`;
+    }).join('');
+
+    container.querySelectorAll('.sidebar-stock-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const id = el.dataset.id;
+        const found = getStocks().find(s => String(s.id) === String(id));
+        if (found) openCheckoutModal(found);
+      });
+    });
+  }
+
+  // ── CHECKOUT MODAL ───────────────────────────────────────────────────────
+  let _checkoutItem = null;
+  let _payMode = 'cash'; // 'cash' | 'credit'
+
+  function updateCheckoutSummary() {
+    if (!_checkoutItem) return;
+    const qtyInp = document.getElementById('coQtyInput');
+    const qty = Math.max(1, parseInt(qtyInp ? qtyInp.value : 1) || 1);
+    const price = Number(_checkoutItem.price) || 0;
+    const subtotal = qty * price;
+
+    const subtotalEl = document.getElementById('coSubtotal');
+    if (subtotalEl) subtotalEl.textContent = currency(subtotal);
+
+    const chargeRow = document.getElementById('summaryChargeRow');
+    const discountRow = document.getElementById('summaryDiscountRow');
+    const chargeValEl = document.getElementById('coCharge');
+    const discValEl = document.getElementById('coDiscount');
+    const totalEl = document.getElementById('coGrandTotal');
+
+    if (_payMode === 'credit') {
+      const chargeInp = document.getElementById('coChargeInput');
+      const chargeAmt = Math.max(0, parseFloat(chargeInp ? chargeInp.value : 0) || 0);
+      const total = subtotal + chargeAmt;
+
+      if (chargeRow) chargeRow.style.display = 'flex';
+      if (discountRow) discountRow.style.display = 'none';
+      if (chargeValEl) chargeValEl.textContent = '+' + currency(chargeAmt);
+      if (totalEl) totalEl.textContent = currency(total);
+    } else {
+      const discInp = document.getElementById('coDiscountInput');
+      const discVal = Math.max(0, parseFloat(discInp ? discInp.value : 0) || 0);
+      const discountAmt = Math.min(discVal, subtotal);
+      const total = Math.max(0, subtotal - discountAmt);
+
+      if (chargeRow) chargeRow.style.display = 'none';
+      if (discountRow) discountRow.style.display = 'flex';
+      if (discValEl) discValEl.textContent = '-' + currency(discountAmt);
+      if (totalEl) totalEl.textContent = currency(total);
+    }
+  }
+
+  function setPayMode(mode) {
+    _payMode = mode;
+    const payModeCash = document.getElementById('payModeCash');
+    const payModeCredit = document.getElementById('payModeCredit');
+    const cashSection = document.getElementById('cashSection');
+    const creditSection = document.getElementById('creditSection');
+
+    if (mode === 'credit') {
+      if (payModeCash) payModeCash.classList.remove('active');
+      if (payModeCredit) payModeCredit.classList.add('active');
+      if (cashSection) cashSection.style.display = 'none';
+      if (creditSection) creditSection.style.display = 'block';
+    } else {
+      if (payModeCash) payModeCash.classList.add('active');
+      if (payModeCredit) payModeCredit.classList.remove('active');
+      if (cashSection) cashSection.style.display = 'block';
+      if (creditSection) creditSection.style.display = 'none';
+    }
+    updateCheckoutSummary();
+  }
+
+  function openCheckoutModal(item) {
+    _checkoutItem = item;
+    const qty = Number(item.stocks) || 0;
+    document.getElementById('coProductName').textContent = item.name;
+    document.getElementById('coUnitPrice').textContent = currency(item.price) + '/unit';
+    const stockBadge = document.getElementById('coStockAvail');
+    stockBadge.textContent = qty + ' units available';
+    stockBadge.className = 'co-stock-badge' + (qty === 0 ? ' out' : qty <= 10 ? ' low' : '');
+    document.getElementById('coBatchTag').textContent = item.batch ? 'Batch: ' + item.batch : '';
+    const qtyInput = document.getElementById('coQtyInput');
+    qtyInput.value = qty > 0 ? 1 : 0;
+    qtyInput.max = qty;
+
+    const discInp = document.getElementById('coDiscountInput');
+    if (discInp) discInp.value = 0;
+    const chargeInp = document.getElementById('coChargeInput');
+    if (chargeInp) chargeInp.value = 0;
+
+    const minusBtn = document.getElementById('coQtyMinus');
+    const plusBtn = document.getElementById('coQtyPlus');
+    const confirmBtn = document.getElementById('confirmCheckoutBtn');
+
+    if (minusBtn) minusBtn.disabled = true;
+    if (plusBtn) plusBtn.disabled = qty <= 1;
+    if (confirmBtn) confirmBtn.disabled = qty === 0;
+
+    setPayMode('cash');
+
+    const modal = document.getElementById('checkoutModal');
+    if (modal) {
+      modal.style.display = 'flex';
+      requestAnimationFrame(() => modal.classList.add('open'));
+    }
+  }
+
+  function closeCheckoutModal() {
+    const modal = document.getElementById('checkoutModal');
+    if (!modal) return;
+    modal.classList.remove('open');
+    setTimeout(() => { modal.style.display = 'none'; }, 220);
+    _checkoutItem = null;
+  }
+
+  function showToast(msg, isError = false) {
+    const toast = document.getElementById('toastNotice');
+    const toastMsg = document.getElementById('toastMsg');
+    const toastIcon = document.getElementById('toastIcon');
+    if (!toast || !toastMsg) return;
+    toastMsg.textContent = msg;
+    if (toastIcon) toastIcon.className = isError ? 'fa-solid fa-circle-xmark' : 'fa-solid fa-circle-check';
+    toast.style.display = 'flex';
+    toast.classList.add('show');
+    setTimeout(() => { toast.classList.remove('show'); setTimeout(() => { toast.style.display = 'none'; }, 400); }, 3200);
+  }
+
+  const checkoutModal = document.getElementById('checkoutModal');
+  if (checkoutModal) {
+    const closeBtn = document.getElementById('closeCheckoutBtn');
+    const cancelBtn = document.getElementById('cancelCheckoutBtn');
+    const overlay = document.getElementById('checkoutModalOverlay');
+    if (closeBtn) closeBtn.addEventListener('click', closeCheckoutModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeCheckoutModal);
+    if (overlay) overlay.addEventListener('click', closeCheckoutModal);
+
+    const minusBtn = document.getElementById('coQtyMinus');
+    const plusBtn = document.getElementById('coQtyPlus');
+    const qtyInp = document.getElementById('coQtyInput');
+    const discInp = document.getElementById('coDiscountInput');
+    const chargeInp = document.getElementById('coChargeInput');
+    const btnApplyDiscount = document.getElementById('btnApplyDiscount');
+    const btnApplyCharge = document.getElementById('btnApplyCharge');
+    const payModeCash = document.getElementById('payModeCash');
+    const payModeCredit = document.getElementById('payModeCredit');
+    const confirmBtn = document.getElementById('confirmCheckoutBtn');
+
+    if (payModeCash) {
+      payModeCash.addEventListener('click', () => setPayMode('cash'));
+    }
+    if (payModeCredit) {
+      payModeCredit.addEventListener('click', () => setPayMode('credit'));
+    }
+
+    if (btnApplyDiscount) {
+      btnApplyDiscount.addEventListener('click', () => {
+        updateCheckoutSummary();
+        showToast('Discount applied to summary');
+      });
+    }
+    if (btnApplyCharge) {
+      btnApplyCharge.addEventListener('click', () => {
+        updateCheckoutSummary();
+        showToast('Additional charge added to summary');
+      });
+    }
+
+    if (minusBtn) {
+      minusBtn.addEventListener('click', () => {
+        const val = Math.max(1, parseInt(qtyInp.value) - 1);
+        qtyInp.value = val;
+        minusBtn.disabled = val <= 1;
+        plusBtn.disabled = _checkoutItem && val >= Number(_checkoutItem.stocks);
+        updateCheckoutSummary();
+      });
+    }
+
+    if (plusBtn) {
+      plusBtn.addEventListener('click', () => {
+        const max = _checkoutItem ? Number(_checkoutItem.stocks) : 1;
+        const val = Math.min(max, parseInt(qtyInp.value) + 1);
+        qtyInp.value = val;
+        minusBtn.disabled = val <= 1;
+        plusBtn.disabled = val >= max;
+        updateCheckoutSummary();
+      });
+    }
+
+    if (qtyInp) {
+      qtyInp.addEventListener('input', () => {
+        const max = _checkoutItem ? Number(_checkoutItem.stocks) : 1;
+        let val = parseInt(qtyInp.value) || 1;
+        val = Math.max(1, Math.min(val, max));
+        qtyInp.value = val;
+        minusBtn.disabled = val <= 1;
+        plusBtn.disabled = val >= max;
+        updateCheckoutSummary();
+      });
+    }
+
+    if (discInp) {
+      discInp.addEventListener('input', updateCheckoutSummary);
+    }
+    if (chargeInp) {
+      chargeInp.addEventListener('input', updateCheckoutSummary);
+    }
+
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', async () => {
+        if (!_checkoutItem) return;
+        const qty = parseInt(qtyInp.value) || 1;
+        const price = Number(_checkoutItem.price) || 0;
+        const subtotal = qty * price;
+        const isCredit = _payMode === 'credit';
+        const paymentStatus = isCredit ? 'unpaid' : 'paid';
+
+        let discountAmt = 0;
+        let chargeAmt = 0;
+        let total = subtotal;
+
+        if (isCredit) {
+          chargeAmt = Math.max(0, parseFloat(chargeInp ? chargeInp.value : 0) || 0);
+          total = subtotal + chargeAmt;
+        } else {
+          const rawDisc = Math.max(0, parseFloat(discInp ? discInp.value : 0) || 0);
+          discountAmt = Math.min(rawDisc, subtotal);
+          total = Math.max(0, subtotal - discountAmt);
+        }
+
+        // Check stock availability
+        const currentStock = Number(_checkoutItem.stocks) || 0;
+        if (qty > currentStock) {
+          showToast(`Cannot checkout ${qty} units. Only ${currentStock} in stock.`, true);
+          return;
+        }
+
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...';
+
+        // Deduct locally
+        const all = [...getStocks()];
+        const idx = all.findIndex(s => String(s.id) === String(_checkoutItem.id));
+        if (idx !== -1) {
+          all[idx].stocks = Math.max(0, Number(all[idx].stocks) - qty);
+          all[idx].updatedAt = new Date().toISOString();
+          syncLocal(all);
+        }
+
+        // Record in Supabase
+        try {
+          const notes = isCredit 
+            ? `Credit Sale (Charge: ₱${chargeAmt.toFixed(2)})` 
+            : (discountAmt > 0 ? `Cash Sale (Discount: ₱${discountAmt.toFixed(2)})` : 'Cash Sale');
+
+          const { data: txn, error: txnErr } = await supabase
+            .from('transactions')
+            .insert([{
+              type: 'sale',
+              payment_status: paymentStatus,
+              subtotal,
+              discount: discountAmt,
+              total,
+              notes
+            }])
+            .select()
+            .single();
+
+          if (txn && !txnErr) {
+            const isStkLocalId = String(_checkoutItem.id).startsWith('stk_');
+            await supabase.from('transaction_items').insert([{
+              transaction_id: txn.id,
+              stock_item_id: isStkLocalId ? null : _checkoutItem.id,
+              product_name: _checkoutItem.name,
+              batch: _checkoutItem.batch || '',
+              unit_price: price,
+              quantity: qty,
+              item_discount: discountAmt
+            }]);
+          }
+
+          // Also update stock_items quantity in Supabase
+          if (!String(_checkoutItem.id).startsWith('stk_') && idx !== -1) {
+            await supabase
+              .from('stock_items')
+              .update({ quantity: all[idx].stocks })
+              .eq('id', _checkoutItem.id);
+          }
+        } catch (err) {
+          console.warn('Supabase checkout fallback:', err);
+        }
+
+        // Record locally
+        let txns = [];
+        try { txns = JSON.parse(localStorage.getItem('inv_transactions') || '[]'); } catch (e) {}
+        txns.unshift({
+          id: Date.now(),
+          date: new Date().toISOString(),
+          productId: _checkoutItem.id,
+          productName: _checkoutItem.name,
+          batch: _checkoutItem.batch || '',
+          qty,
+          unitPrice: price,
+          subtotal,
+          discount: discountAmt,
+          charge: chargeAmt,
+          total,
+          type: 'sale',
+          paymentStatus,
+          payMode: _payMode
+        });
+        localStorage.setItem('inv_transactions', JSON.stringify(txns));
+
+        const itemName = _checkoutItem.name;
+        const modeLabel = isCredit ? 'Credit' : 'Cash';
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = '<i class="fa-solid fa-check"></i> Submit Checkout';
+
+        closeCheckoutModal();
+        renderSidebarStocks();
+        await loadDashboard(dateRangeSelect ? dateRangeSelect.value : 'week');
+        showToast(`Checkout done! ${itemName} ×${qty} — ${currency(total)} (${modeLabel})`);
+      });
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && checkoutModal.classList.contains('open')) closeCheckoutModal();
+    });
+  }
+
+  // ── FETCH SUPABASE DASHBOARD DATA (WITH SEED/MOCK FALLBACK) ───────────────
   const fetchDashboardData = async (period = 'week') => {
     let txns = [];
     let expenses = [];
@@ -108,7 +569,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       console.warn('Expenses fetch fallback:', e);
     }
 
-    // If transactions found in Supabase
     if (txns.length > 0) {
       let totalPaid = 0;
       let totalUnpaid = 0;
@@ -119,7 +579,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const disc = Number(t.discount) || 0;
         if (t.payment_status === 'paid') totalPaid += amt;
         else if (t.payment_status === 'unpaid') totalUnpaid += amt;
-        else totalPaid += amt; // partial or other
+        else totalPaid += amt;
         totalDiscount += disc;
       });
 
@@ -127,7 +587,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const cashOnHand = totalPaid - totalExpense;
 
       const mappedTxns = txns.map(t => ({
-        ref: t.reference_no || `TXN-${t.id.slice(0, 6)}`,
+        ref: t.reference_no || `TXN-${String(t.id).slice(0, 6)}`,
         customer: t.notes || 'Counter Sale',
         date: t.created_at ? t.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10),
         amount: Number(t.total) || 0,
@@ -173,11 +633,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       };
     }
 
-    // Check localStorage transactions
+    // Local fallback
     let localTxns = [];
     try { localTxns = JSON.parse(localStorage.getItem('inv_transactions') || '[]'); } catch (e) {}
 
-    // Fallback Mock scale if brand new
     const scale = { today: 1, week: 6.5, month: 28, quarter: 85, year: 320 }[period] || 6.5;
     const baseMock = {
       paid:     Math.round(48500 * scale),
@@ -199,9 +658,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     if (localTxns.length > 0) {
-      const extraPaid = localTxns.reduce((sum, t) => sum + (Number(t.total) || 0), 0);
+      const extraPaid = localTxns.filter(t => t.paymentStatus !== 'unpaid').reduce((sum, t) => sum + (Number(t.total) || 0), 0);
+      const extraUnpaid = localTxns.filter(t => t.paymentStatus === 'unpaid').reduce((sum, t) => sum + (Number(t.total) || 0), 0);
       const extraDisc = localTxns.reduce((sum, t) => sum + (Number(t.discount) || 0), 0);
       baseMock.paid += extraPaid;
+      baseMock.unpaid += extraUnpaid;
       baseMock.cash += extraPaid;
       baseMock.discount += extraDisc;
 
@@ -211,7 +672,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         date: t.date ? t.date.slice(0, 10) : new Date().toISOString().slice(0, 10),
         amount: Number(t.total) || 0,
         discount: Number(t.discount) || 0,
-        status: 'paid'
+        status: t.paymentStatus || 'paid'
       }));
 
       baseMock.transactions = [...formattedLocal, ...baseMock.transactions];
@@ -248,8 +709,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
 
   // ── CHARTS ────────────────────────────────────────────────────────────────
-  let salesChart, breakdownChart;
-
   const chartColors = {
     paid:    '#10b981',
     unpaid:  '#f59e0b',
@@ -258,10 +717,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     cash:    '#06b6d4',
   };
 
-  const getChartTextColor = () =>
-    document.documentElement.getAttribute('data-theme') === 'dark' ? '#94a3b8' : '#475569';
-  const getGridColor = () =>
-    document.documentElement.getAttribute('data-theme') === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+  function getChartTextColor() {
+    return document.documentElement.getAttribute('data-theme') === 'dark' ? '#94a3b8' : '#475569';
+  }
+
+  function getGridColor() {
+    return document.documentElement.getAttribute('data-theme') === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+  }
 
   const initCharts = (data) => {
     const barEl = document.getElementById('salesChart');
@@ -376,7 +838,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   };
 
-  const updateChartTheme = () => {
+  function updateChartTheme() {
+    if (!salesChart && !breakdownChart) return;
     const textColor = getChartTextColor();
     const gridColor = getGridColor();
     if (salesChart) {
@@ -390,7 +853,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       breakdownChart.options.plugins.legend.labels.color = textColor;
       breakdownChart.update();
     }
-  };
+  }
 
   // ── TRANSACTIONS TABLE ────────────────────────────────────────────────────
   let currentPage = 1;
@@ -398,7 +861,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let allTransactions = [];
 
   const renderTable = (transactions) => {
-    const tbody = document.getElementById('txnTableBody');
+    const tbody = document.getElementById('transactionTableBody') || document.getElementById('txnTableBody');
     const info = document.getElementById('tableInfo');
     const pageNum = document.getElementById('pageNum');
     if (!tbody || !info || !pageNum) return;
@@ -432,19 +895,29 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     info.textContent = `Showing ${start + 1}–${Math.min(start + perPage, transactions.length)} of ${transactions.length} records`;
     pageNum.textContent = `${currentPage} / ${totalPages}`;
-    document.getElementById('prevPage').disabled = currentPage === 1;
-    document.getElementById('nextPage').disabled = currentPage >= totalPages;
+    const prevBtn = document.getElementById('prevPage');
+    const nextBtn = document.getElementById('nextPage');
+    if (prevBtn) prevBtn.disabled = currentPage === 1;
+    if (nextBtn) nextBtn.disabled = currentPage >= totalPages;
   };
 
-  document.getElementById('prevPage').addEventListener('click', () => {
-    if (currentPage > 1) { currentPage--; renderTable(filterTransactions()); }
-  });
+  const prevBtn = document.getElementById('prevPage');
+  const nextBtn = document.getElementById('nextPage');
 
-  document.getElementById('nextPage').addEventListener('click', () => {
-    currentPage++; renderTable(filterTransactions());
-  });
+  if (prevBtn) {
+    prevBtn.addEventListener('click', () => {
+      if (currentPage > 1) { currentPage--; renderTable(filterTransactions()); }
+    });
+  }
+
+  if (nextBtn) {
+    nextBtn.addEventListener('click', () => {
+      currentPage++; renderTable(filterTransactions());
+    });
+  }
 
   const filterTransactions = () => {
+    if (!tableSearch) return allTransactions;
     const q = tableSearch.value.trim().toLowerCase();
     if (!q) return allTransactions;
     return allTransactions.filter(t =>
@@ -454,10 +927,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     );
   };
 
-  tableSearch.addEventListener('input', () => {
-    currentPage = 1;
-    renderTable(filterTransactions());
-  });
+  if (tableSearch) {
+    tableSearch.addEventListener('input', () => {
+      currentPage = 1;
+      renderTable(filterTransactions());
+    });
+  }
 
   // ── LOAD DASHBOARD ────────────────────────────────────────────────────────
   const loadDashboard = async (period = 'week') => {
@@ -509,244 +984,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // ── SIDEBAR STOCKS LIST + CHECKOUT MODAL ──────────────────────────────────
-  let _checkoutItem = null;
+  // ── STARTUP: RENDER SIDEBAR STOCKS IMMEDIATELY THEN LOAD FULL DATA ────────
+  renderSidebarStocks();
+  loadStocks();
+  loadDashboard('week');
 
-  function fmt(n) {
-    return '₱' + Number(n).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }
+};
 
-  async function getStocksList() {
-    try {
-      const { data, error } = await supabase
-        .from('stock_items')
-        .select('*')
-        .order('name');
-
-      if (!error && Array.isArray(data) && data.length > 0) {
-        const mapped = data.map(i => ({
-          id: i.id,
-          name: i.name,
-          batch: i.batch,
-          stocks: Number(i.quantity) || 0,
-          price: parseFloat(i.unit_price) || 0
-        }));
-        localStorage.setItem('inv_stocks_data', JSON.stringify(mapped));
-        return mapped;
-      }
-    } catch (_) {}
-
-    try {
-      return JSON.parse(localStorage.getItem('inv_stocks_data') || '[]');
-    } catch (_) {
-      return [];
-    }
-  }
-
-  async function renderSidebarStocks() {
-    const container = document.getElementById('sidebarStocksList');
-    if (!container) return;
-
-    const stocks = await getStocksList();
-    if (!Array.isArray(stocks) || stocks.length === 0) {
-      container.innerHTML = '<span class="sidebar-stock-empty">No stocks added yet.</span>';
-      return;
-    }
-
-    container.innerHTML = stocks.map(item => {
-      const qty = Number(item.stocks) || 0;
-      const cls = qty === 0 ? 'out-of-stock' : qty <= 10 ? 'low-stock' : '';
-      const badgeLabel = qty === 0 ? 'Out' : (qty <= 10 ? qty + ' low' : qty);
-      return `<div class="sidebar-stock-item ${cls}" data-id="${item.id}" title="${item.name}">
-        <span class="stock-icon"><i class="fa-solid fa-box-open"></i></span>
-        <span class="stock-item-name">${item.name}</span>
-        <span class="stock-item-badge">${badgeLabel}</span>
-      </div>`;
-    }).join('');
-
-    container.querySelectorAll('.sidebar-stock-item').forEach(el => {
-      el.addEventListener('click', async () => {
-        const id = el.dataset.id;
-        const all = await getStocksList();
-        const found = all.find(s => String(s.id) === String(id));
-        if (found) openCheckoutModal(found);
-      });
-    });
-  }
-
-  function updateCheckoutSummary() {
-    if (!_checkoutItem) return;
-    const qty = Math.max(1, parseInt(document.getElementById('coQtyInput').value) || 1);
-    const disc = Math.max(0, parseFloat(document.getElementById('coDiscountInput').value) || 0);
-    const price = Number(_checkoutItem.price) || 0;
-    const subtotal = qty * price;
-    const discountAmt = Math.min(disc, subtotal);
-    const total = subtotal - discountAmt;
-    document.getElementById('coSubtotal').textContent = fmt(subtotal);
-    document.getElementById('coDiscount').textContent = '-' + fmt(discountAmt);
-    document.getElementById('coGrandTotal').textContent = fmt(total);
-  }
-
-  function openCheckoutModal(item) {
-    _checkoutItem = item;
-    const qty = Number(item.stocks) || 0;
-    document.getElementById('coProductName').textContent = item.name;
-    document.getElementById('coUnitPrice').textContent = fmt(item.price) + '/unit';
-    const stockBadge = document.getElementById('coStockAvail');
-    stockBadge.textContent = qty + ' units available';
-    stockBadge.className = 'co-stock-badge' + (qty === 0 ? ' out' : qty <= 10 ? ' low' : '');
-    document.getElementById('coBatchTag').textContent = item.batch ? 'Batch: ' + item.batch : '';
-    const qtyInput = document.getElementById('coQtyInput');
-    qtyInput.value = qty > 0 ? 1 : 0;
-    qtyInput.max = qty;
-    document.getElementById('coDiscountInput').value = 0;
-    document.getElementById('coQtyMinus').disabled = true;
-    document.getElementById('coQtyPlus').disabled = qty <= 1;
-    document.getElementById('confirmCheckoutBtn').disabled = qty === 0;
-    updateCheckoutSummary();
-    const modal = document.getElementById('checkoutModal');
-    modal.style.display = 'flex';
-    requestAnimationFrame(() => modal.classList.add('open'));
-  }
-
-  function closeCheckoutModal() {
-    const modal = document.getElementById('checkoutModal');
-    if (!modal) return;
-    modal.classList.remove('open');
-    setTimeout(() => { modal.style.display = 'none'; }, 220);
-    _checkoutItem = null;
-  }
-
-  function showToast(msg, isError = false) {
-    const toast = document.getElementById('toastNotice');
-    const toastMsg = document.getElementById('toastMsg');
-    const toastIcon = document.getElementById('toastIcon');
-    if (!toast || !toastMsg) return;
-    toastMsg.textContent = msg;
-    if (toastIcon) toastIcon.className = isError ? 'fa-solid fa-circle-xmark' : 'fa-solid fa-circle-check';
-    toast.style.display = 'flex';
-    toast.classList.add('show');
-    setTimeout(() => { toast.classList.remove('show'); setTimeout(() => { toast.style.display = 'none'; }, 400); }, 3200);
-  }
-
-  const checkoutModal = document.getElementById('checkoutModal');
-  if (checkoutModal) {
-    document.getElementById('closeCheckoutBtn').addEventListener('click', closeCheckoutModal);
-    document.getElementById('cancelCheckoutBtn').addEventListener('click', closeCheckoutModal);
-    document.getElementById('checkoutModalOverlay').addEventListener('click', closeCheckoutModal);
-
-    document.getElementById('coQtyMinus').addEventListener('click', () => {
-      const inp = document.getElementById('coQtyInput');
-      const val = Math.max(1, parseInt(inp.value) - 1);
-      inp.value = val;
-      document.getElementById('coQtyMinus').disabled = val <= 1;
-      document.getElementById('coQtyPlus').disabled = _checkoutItem && val >= Number(_checkoutItem.stocks);
-      updateCheckoutSummary();
-    });
-
-    document.getElementById('coQtyPlus').addEventListener('click', () => {
-      const inp = document.getElementById('coQtyInput');
-      const max = _checkoutItem ? Number(_checkoutItem.stocks) : 1;
-      const val = Math.min(max, parseInt(inp.value) + 1);
-      inp.value = val;
-      document.getElementById('coQtyMinus').disabled = val <= 1;
-      document.getElementById('coQtyPlus').disabled = val >= max;
-      updateCheckoutSummary();
-    });
-
-    document.getElementById('coQtyInput').addEventListener('input', () => {
-      const inp = document.getElementById('coQtyInput');
-      const max = _checkoutItem ? Number(_checkoutItem.stocks) : 1;
-      let val = parseInt(inp.value) || 1;
-      val = Math.max(1, Math.min(val, max));
-      inp.value = val;
-      document.getElementById('coQtyMinus').disabled = val <= 1;
-      document.getElementById('coQtyPlus').disabled = val >= max;
-      updateCheckoutSummary();
-    });
-
-    document.getElementById('coDiscountInput').addEventListener('input', updateCheckoutSummary);
-
-    document.getElementById('confirmCheckoutBtn').addEventListener('click', async () => {
-      if (!_checkoutItem) return;
-      const qty = parseInt(document.getElementById('coQtyInput').value) || 1;
-      const disc = Math.max(0, parseFloat(document.getElementById('coDiscountInput').value) || 0);
-      const price = Number(_checkoutItem.price) || 0;
-      const subtotal = qty * price;
-      const discountAmt = Math.min(disc, subtotal);
-      const total = subtotal - discountAmt;
-
-      // Deduct stock from localStorage
-      let all = [];
-      try { all = JSON.parse(localStorage.getItem('inv_stocks_data') || '[]'); } catch (e) {}
-      const idx = all.findIndex(s => String(s.id) === String(_checkoutItem.id));
-      if (idx !== -1) {
-        all[idx].stocks = Math.max(0, Number(all[idx].stocks) - qty);
-        all[idx].updatedAt = new Date().toISOString();
-        localStorage.setItem('inv_stocks_data', JSON.stringify(all));
-      }
-
-      // Record transaction in Supabase
-      try {
-        const { data: txn } = await supabase
-          .from('transactions')
-          .insert([{
-            type: 'sale',
-            payment_status: 'paid',
-            subtotal,
-            discount: discountAmt,
-            total
-          }])
-          .select()
-          .single();
-
-        if (txn) {
-          await supabase.from('transaction_items').insert([{
-            transaction_id: txn.id,
-            stock_item_id: _checkoutItem.id.startsWith('stk_') ? null : _checkoutItem.id,
-            product_name: _checkoutItem.name,
-            batch: _checkoutItem.batch,
-            unit_price: price,
-            quantity: qty,
-            item_discount: discountAmt
-          }]);
-        }
-      } catch (err) {
-        console.warn('Supabase checkout fallback:', err);
-      }
-
-      // Record transaction locally
-      let txns = [];
-      try { txns = JSON.parse(localStorage.getItem('inv_transactions') || '[]'); } catch (e) {}
-      txns.unshift({
-        id: Date.now(),
-        date: new Date().toISOString(),
-        productId: _checkoutItem.id,
-        productName: _checkoutItem.name,
-        batch: _checkoutItem.batch,
-        qty,
-        unitPrice: price,
-        subtotal,
-        discount: discountAmt,
-        total,
-        type: 'sale'
-      });
-      localStorage.setItem('inv_transactions', JSON.stringify(txns));
-
-      const itemName = _checkoutItem.name;
-      closeCheckoutModal();
-      await renderSidebarStocks();
-      await loadDashboard('week');
-      showToast(`Checkout done! ${itemName} ×${qty} — ${fmt(total)}`);
-    });
-
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && checkoutModal.classList.contains('open')) closeCheckoutModal();
-    });
-  }
-
-  // ── INITIAL LOAD ─────────────────────────────────────────────────────────
-  await renderSidebarStocks();
-  await loadDashboard('week');
-
-});
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initDashboard);
+} else {
+  initDashboard();
+}

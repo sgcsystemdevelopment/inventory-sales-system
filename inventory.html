@@ -398,23 +398,60 @@
             <button type="button" class="stepper-btn" id="coQtyPlus"><i class="fa-solid fa-plus"></i></button>
           </div>
         </div>
+
+        <!-- Payment Method: Cash or Credit -->
         <div class="form-field">
-          <label>Discount (₱)</label>
-          <div class="form-input-wrapper">
-            <i class="fa-solid fa-tag field-icon"></i>
-            <input type="number" id="coDiscountInput" min="0" step="0.01" value="0" placeholder="0.00">
+          <label>Payment Method</label>
+          <div class="payment-method-toggle">
+            <button type="button" class="btn-pay-mode active" id="payModeCash">
+              <i class="fa-solid fa-money-bill-wave"></i> Cash
+            </button>
+            <button type="button" class="btn-pay-mode" id="payModeCredit">
+              <i class="fa-solid fa-credit-card"></i> Credit
+            </button>
           </div>
         </div>
+
+        <!-- Cash Section: Discount Input & Add Discount Button -->
+        <div class="form-field" id="cashSection">
+          <label for="coDiscountInput">Discount (₱)</label>
+          <div class="input-action-group">
+            <div class="form-input-wrapper">
+              <i class="fa-solid fa-tag field-icon"></i>
+              <input type="number" id="coDiscountInput" min="0" step="0.01" value="0" placeholder="Enter discount amount (₱)">
+            </div>
+            <button type="button" class="btn-addon-action" id="btnApplyDiscount">
+              <i class="fa-solid fa-percent"></i> Add Discount
+            </button>
+          </div>
+        </div>
+
+        <!-- Credit Section: Add Charge Input & Add Charge Button -->
+        <div class="form-field" id="creditSection" style="display: none;">
+          <label for="coChargeInput">Additional Charge (₱)</label>
+          <div class="input-action-group">
+            <div class="form-input-wrapper">
+              <i class="fa-solid fa-receipt field-icon"></i>
+              <input type="number" id="coChargeInput" min="0" step="0.01" value="0" placeholder="Enter charge amount (₱)">
+            </div>
+            <button type="button" class="btn-addon-action" id="btnApplyCharge">
+              <i class="fa-solid fa-plus"></i> Add Charge
+            </button>
+          </div>
+        </div>
+
+        <!-- Summary Box -->
         <div class="checkout-summary-box">
           <div class="co-summary-row"><span>Subtotal</span><span id="coSubtotal">₱0.00</span></div>
-          <div class="co-summary-row discount"><span>Discount</span><span id="coDiscount">-₱0.00</span></div>
+          <div class="co-summary-row discount" id="summaryDiscountRow"><span>Discount</span><span id="coDiscount">-₱0.00</span></div>
+          <div class="co-summary-row charge" id="summaryChargeRow" style="display: none;"><span>Additional Charge</span><span id="coCharge">+₱0.00</span></div>
           <div class="co-summary-row grand-total"><span>Total</span><span id="coGrandTotal">₱0.00</span></div>
         </div>
       </div>
       <div class="modal-btn-actions" style="padding:0 1.5rem 0;margin-top:1rem;">
         <button class="btn-modal-cancel" id="cancelCheckoutBtn">Cancel</button>
         <button class="btn-modal-submit" id="confirmCheckoutBtn">
-          <i class="fa-solid fa-check"></i> Confirm Checkout
+          <i class="fa-solid fa-check"></i> Submit Checkout
         </button>
       </div>
     </div>

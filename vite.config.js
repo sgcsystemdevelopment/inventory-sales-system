@@ -13,7 +13,8 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         dashboard: resolve(__dirname, 'dashboard.html'),
-        inventory: resolve(__dirname, 'inventory.html')
+        inventory: resolve(__dirname, 'inventory.html'),
+        expenses: resolve(__dirname, 'expenses.html')
       }
     }
   }

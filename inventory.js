@@ -6,7 +6,7 @@
 
 import { supabase } from './supabaseClient.js';
 
-document.addEventListener('DOMContentLoaded', async () => {
+const initInventory = async () => {
 
   // ── ELEMENT REFERENCES ───────────────────────────────────────────────────
   const themeToggleBtn       = document.getElementById('themeToggleBtn');
@@ -761,9 +761,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // ── SIDEBAR STOCKS LIST + CHECKOUT MODAL ─────────────────────────────────
   let _checkoutItem = null;
+  let _payMode = 'cash'; // 'cash' | 'credit'
 
   function fmtPeso(n) {
-    return '₱' + Number(n).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return '₱' + Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
   function renderSidebarStocks() {
@@ -796,15 +797,61 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function updateCheckoutSummary() {
     if (!_checkoutItem) return;
-    const qty = Math.max(1, parseInt(document.getElementById('coQtyInput').value) || 1);
-    const disc = Math.max(0, parseFloat(document.getElementById('coDiscountInput').value) || 0);
+    const qtyInp = document.getElementById('coQtyInput');
+    const qty = Math.max(1, parseInt(qtyInp ? qtyInp.value : 1) || 1);
     const price = Number(_checkoutItem.price) || 0;
     const subtotal = qty * price;
-    const discountAmt = Math.min(disc, subtotal);
-    const total = subtotal - discountAmt;
-    document.getElementById('coSubtotal').textContent = fmtPeso(subtotal);
-    document.getElementById('coDiscount').textContent = '-' + fmtPeso(discountAmt);
-    document.getElementById('coGrandTotal').textContent = fmtPeso(total);
+
+    const subtotalEl = document.getElementById('coSubtotal');
+    if (subtotalEl) subtotalEl.textContent = fmtPeso(subtotal);
+
+    const chargeRow = document.getElementById('summaryChargeRow');
+    const discountRow = document.getElementById('summaryDiscountRow');
+    const chargeValEl = document.getElementById('coCharge');
+    const discValEl = document.getElementById('coDiscount');
+    const totalEl = document.getElementById('coGrandTotal');
+
+    if (_payMode === 'credit') {
+      const chargeInp = document.getElementById('coChargeInput');
+      const chargeAmt = Math.max(0, parseFloat(chargeInp ? chargeInp.value : 0) || 0);
+      const total = subtotal + chargeAmt;
+
+      if (chargeRow) chargeRow.style.display = 'flex';
+      if (discountRow) discountRow.style.display = 'none';
+      if (chargeValEl) chargeValEl.textContent = '+' + fmtPeso(chargeAmt);
+      if (totalEl) totalEl.textContent = fmtPeso(total);
+    } else {
+      const discInp = document.getElementById('coDiscountInput');
+      const discVal = Math.max(0, parseFloat(discInp ? discInp.value : 0) || 0);
+      const discountAmt = Math.min(discVal, subtotal);
+      const total = Math.max(0, subtotal - discountAmt);
+
+      if (chargeRow) chargeRow.style.display = 'none';
+      if (discountRow) discountRow.style.display = 'flex';
+      if (discValEl) discValEl.textContent = '-' + fmtPeso(discountAmt);
+      if (totalEl) totalEl.textContent = fmtPeso(total);
+    }
+  }
+
+  function setPayMode(mode) {
+    _payMode = mode;
+    const payModeCash = document.getElementById('payModeCash');
+    const payModeCredit = document.getElementById('payModeCredit');
+    const cashSection = document.getElementById('cashSection');
+    const creditSection = document.getElementById('creditSection');
+
+    if (mode === 'credit') {
+      if (payModeCash) payModeCash.classList.remove('active');
+      if (payModeCredit) payModeCredit.classList.add('active');
+      if (cashSection) cashSection.style.display = 'none';
+      if (creditSection) creditSection.style.display = 'block';
+    } else {
+      if (payModeCash) payModeCash.classList.add('active');
+      if (payModeCredit) payModeCredit.classList.remove('active');
+      if (cashSection) cashSection.style.display = 'block';
+      if (creditSection) creditSection.style.display = 'none';
+    }
+    updateCheckoutSummary();
   }
 
   function openCheckoutModal(item) {
@@ -819,14 +866,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     const qtyInput = document.getElementById('coQtyInput');
     qtyInput.value = qty > 0 ? 1 : 0;
     qtyInput.max = qty;
-    document.getElementById('coDiscountInput').value = 0;
-    document.getElementById('coQtyMinus').disabled = true;
-    document.getElementById('coQtyPlus').disabled = qty <= 1;
-    document.getElementById('confirmCheckoutBtn').disabled = qty === 0;
-    updateCheckoutSummary();
+
+    const discInp = document.getElementById('coDiscountInput');
+    if (discInp) discInp.value = 0;
+    const chargeInp = document.getElementById('coChargeInput');
+    if (chargeInp) chargeInp.value = 0;
+
+    const minusBtn = document.getElementById('coQtyMinus');
+    const plusBtn = document.getElementById('coQtyPlus');
+    const confirmBtn = document.getElementById('confirmCheckoutBtn');
+
+    if (minusBtn) minusBtn.disabled = true;
+    if (plusBtn) plusBtn.disabled = qty <= 1;
+    if (confirmBtn) confirmBtn.disabled = qty === 0;
+
+    setPayMode('cash');
+
     const modal = document.getElementById('checkoutModal');
-    modal.style.display = 'flex';
-    requestAnimationFrame(() => modal.classList.add('open'));
+    if (modal) {
+      modal.style.display = 'flex';
+      requestAnimationFrame(() => modal.classList.add('open'));
+    }
   }
 
   function closeCheckoutModal() {
@@ -839,114 +899,210 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const checkoutModal = document.getElementById('checkoutModal');
   if (checkoutModal) {
-    document.getElementById('closeCheckoutBtn').addEventListener('click', closeCheckoutModal);
-    document.getElementById('cancelCheckoutBtn').addEventListener('click', closeCheckoutModal);
-    document.getElementById('checkoutModalOverlay').addEventListener('click', closeCheckoutModal);
+    const closeBtn = document.getElementById('closeCheckoutBtn');
+    const cancelBtn = document.getElementById('cancelCheckoutBtn');
+    const overlay = document.getElementById('checkoutModalOverlay');
+    if (closeBtn) closeBtn.addEventListener('click', closeCheckoutModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeCheckoutModal);
+    if (overlay) overlay.addEventListener('click', closeCheckoutModal);
 
-    document.getElementById('coQtyMinus').addEventListener('click', () => {
-      const inp = document.getElementById('coQtyInput');
-      const val = Math.max(1, parseInt(inp.value) - 1);
-      inp.value = val;
-      document.getElementById('coQtyMinus').disabled = val <= 1;
-      document.getElementById('coQtyPlus').disabled = _checkoutItem && val >= Number(_checkoutItem.stocks);
-      updateCheckoutSummary();
-    });
+    const minusBtn = document.getElementById('coQtyMinus');
+    const plusBtn = document.getElementById('coQtyPlus');
+    const qtyInp = document.getElementById('coQtyInput');
+    const discInp = document.getElementById('coDiscountInput');
+    const chargeInp = document.getElementById('coChargeInput');
+    const btnApplyDiscount = document.getElementById('btnApplyDiscount');
+    const btnApplyCharge = document.getElementById('btnApplyCharge');
+    const payModeCash = document.getElementById('payModeCash');
+    const payModeCredit = document.getElementById('payModeCredit');
+    const confirmBtn = document.getElementById('confirmCheckoutBtn');
 
-    document.getElementById('coQtyPlus').addEventListener('click', () => {
-      const inp = document.getElementById('coQtyInput');
-      const max = _checkoutItem ? Number(_checkoutItem.stocks) : 1;
-      const val = Math.min(max, parseInt(inp.value) + 1);
-      inp.value = val;
-      document.getElementById('coQtyMinus').disabled = val <= 1;
-      document.getElementById('coQtyPlus').disabled = val >= max;
-      updateCheckoutSummary();
-    });
+    if (payModeCash) {
+      payModeCash.addEventListener('click', () => setPayMode('cash'));
+    }
+    if (payModeCredit) {
+      payModeCredit.addEventListener('click', () => setPayMode('credit'));
+    }
 
-    document.getElementById('coQtyInput').addEventListener('input', () => {
-      const inp = document.getElementById('coQtyInput');
-      const max = _checkoutItem ? Number(_checkoutItem.stocks) : 1;
-      let val = parseInt(inp.value) || 1;
-      val = Math.max(1, Math.min(val, max));
-      inp.value = val;
-      document.getElementById('coQtyMinus').disabled = val <= 1;
-      document.getElementById('coQtyPlus').disabled = val >= max;
-      updateCheckoutSummary();
-    });
-
-    document.getElementById('coDiscountInput').addEventListener('input', updateCheckoutSummary);
-
-    document.getElementById('confirmCheckoutBtn').addEventListener('click', async () => {
-      if (!_checkoutItem) return;
-      const qty = parseInt(document.getElementById('coQtyInput').value) || 1;
-      const disc = Math.max(0, parseFloat(document.getElementById('coDiscountInput').value) || 0);
-      const price = Number(_checkoutItem.price) || 0;
-      const subtotal = qty * price;
-      const discountAmt = Math.min(disc, subtotal);
-      const total = subtotal - discountAmt;
-
-      // Deduct locally
-      const all = [...getStocks()];
-      const idx = all.findIndex(s => String(s.id) === String(_checkoutItem.id));
-      if (idx !== -1) {
-        all[idx].stocks = Math.max(0, Number(all[idx].stocks) - qty);
-        all[idx].updatedAt = new Date().toISOString();
-        syncLocal(all);
-      }
-
-      // Record transaction in Supabase
-      try {
-        const { data: txn } = await supabase
-          .from('transactions')
-          .insert([{
-            type: 'sale',
-            payment_status: 'paid',
-            subtotal,
-            discount: discountAmt,
-            total
-          }])
-          .select()
-          .single();
-
-        if (txn) {
-          await supabase.from('transaction_items').insert([{
-            transaction_id: txn.id,
-            stock_item_id: _checkoutItem.id.startsWith('stk_') ? null : _checkoutItem.id,
-            product_name: _checkoutItem.name,
-            batch: _checkoutItem.batch,
-            unit_price: price,
-            quantity: qty,
-            item_discount: discountAmt
-          }]);
-        }
-      } catch (err) {
-        console.warn('Supabase transaction insert fallback:', err);
-      }
-
-      // Record local transaction
-      let txns = [];
-      try { txns = JSON.parse(localStorage.getItem('inv_transactions') || '[]'); } catch (e) {}
-      txns.unshift({
-        id: Date.now(),
-        date: new Date().toISOString(),
-        productId: _checkoutItem.id,
-        productName: _checkoutItem.name,
-        batch: _checkoutItem.batch,
-        qty,
-        unitPrice: price,
-        subtotal,
-        discount: discountAmt,
-        total,
-        type: 'sale'
+    if (btnApplyDiscount) {
+      btnApplyDiscount.addEventListener('click', () => {
+        updateCheckoutSummary();
+        showToast('Discount applied to summary');
       });
-      localStorage.setItem('inv_transactions', JSON.stringify(txns));
+    }
+    if (btnApplyCharge) {
+      btnApplyCharge.addEventListener('click', () => {
+        updateCheckoutSummary();
+        showToast('Additional charge added to summary');
+      });
+    }
 
-      const itemName = _checkoutItem.name;
-      closeCheckoutModal();
-      showToast(`Checkout done! ${itemName} ×${qty} — ${fmtPeso(total)}`);
-    });
+    if (minusBtn) {
+      minusBtn.addEventListener('click', () => {
+        const val = Math.max(1, parseInt(qtyInp.value) - 1);
+        qtyInp.value = val;
+        minusBtn.disabled = val <= 1;
+        plusBtn.disabled = _checkoutItem && val >= Number(_checkoutItem.stocks);
+        updateCheckoutSummary();
+      });
+    }
+
+    if (plusBtn) {
+      plusBtn.addEventListener('click', () => {
+        const max = _checkoutItem ? Number(_checkoutItem.stocks) : 1;
+        const val = Math.min(max, parseInt(qtyInp.value) + 1);
+        qtyInp.value = val;
+        minusBtn.disabled = val <= 1;
+        plusBtn.disabled = val >= max;
+        updateCheckoutSummary();
+      });
+    }
+
+    if (qtyInp) {
+      qtyInp.addEventListener('input', () => {
+        const max = _checkoutItem ? Number(_checkoutItem.stocks) : 1;
+        let val = parseInt(qtyInp.value) || 1;
+        val = Math.max(1, Math.min(val, max));
+        qtyInp.value = val;
+        minusBtn.disabled = val <= 1;
+        plusBtn.disabled = val >= max;
+        updateCheckoutSummary();
+      });
+    }
+
+    if (discInp) {
+      discInp.addEventListener('input', updateCheckoutSummary);
+    }
+    if (chargeInp) {
+      chargeInp.addEventListener('input', updateCheckoutSummary);
+    }
+
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', async () => {
+        if (!_checkoutItem) return;
+        const qty = parseInt(qtyInp.value) || 1;
+        const price = Number(_checkoutItem.price) || 0;
+        const subtotal = qty * price;
+        const isCredit = _payMode === 'credit';
+        const paymentStatus = isCredit ? 'unpaid' : 'paid';
+
+        let discountAmt = 0;
+        let chargeAmt = 0;
+        let total = subtotal;
+
+        if (isCredit) {
+          chargeAmt = Math.max(0, parseFloat(chargeInp ? chargeInp.value : 0) || 0);
+          total = subtotal + chargeAmt;
+        } else {
+          const rawDisc = Math.max(0, parseFloat(discInp ? discInp.value : 0) || 0);
+          discountAmt = Math.min(rawDisc, subtotal);
+          total = Math.max(0, subtotal - discountAmt);
+        }
+
+        // Check stock availability
+        const currentStock = Number(_checkoutItem.stocks) || 0;
+        if (qty > currentStock) {
+          showToast(`Cannot checkout ${qty} units. Only ${currentStock} in stock.`, 'danger');
+          return;
+        }
+
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...';
+
+        // Deduct locally
+        const all = [...getStocks()];
+        const idx = all.findIndex(s => String(s.id) === String(_checkoutItem.id));
+        if (idx !== -1) {
+          all[idx].stocks = Math.max(0, Number(all[idx].stocks) - qty);
+          all[idx].updatedAt = new Date().toISOString();
+          syncLocal(all);
+        }
+
+        // Record transaction in Supabase
+        try {
+          const notes = isCredit 
+            ? `Credit Sale (Charge: ₱${chargeAmt.toFixed(2)})` 
+            : (discountAmt > 0 ? `Cash Sale (Discount: ₱${discountAmt.toFixed(2)})` : 'Cash Sale');
+
+          const { data: txn, error: txnErr } = await supabase
+            .from('transactions')
+            .insert([{
+              type: 'sale',
+              payment_status: paymentStatus,
+              subtotal,
+              discount: discountAmt,
+              total,
+              notes
+            }])
+            .select()
+            .single();
+
+          if (txn && !txnErr) {
+            const isStkLocalId = String(_checkoutItem.id).startsWith('stk_');
+            await supabase.from('transaction_items').insert([{
+              transaction_id: txn.id,
+              stock_item_id: isStkLocalId ? null : _checkoutItem.id,
+              product_name: _checkoutItem.name,
+              batch: _checkoutItem.batch || '',
+              unit_price: price,
+              quantity: qty,
+              item_discount: discountAmt
+            }]);
+          }
+
+          // Also update stock_items quantity in Supabase
+          if (!String(_checkoutItem.id).startsWith('stk_') && idx !== -1) {
+            await supabase
+              .from('stock_items')
+              .update({ quantity: all[idx].stocks })
+              .eq('id', _checkoutItem.id);
+          }
+        } catch (err) {
+          console.warn('Supabase transaction insert fallback:', err);
+        }
+
+        // Record local transaction
+        let txns = [];
+        try { txns = JSON.parse(localStorage.getItem('inv_transactions') || '[]'); } catch (e) {}
+        txns.unshift({
+          id: Date.now(),
+          date: new Date().toISOString(),
+          productId: _checkoutItem.id,
+          productName: _checkoutItem.name,
+          batch: _checkoutItem.batch || '',
+          qty,
+          unitPrice: price,
+          subtotal,
+          discount: discountAmt,
+          charge: chargeAmt,
+          total,
+          type: 'sale',
+          paymentStatus,
+          payMode: _payMode
+        });
+        localStorage.setItem('inv_transactions', JSON.stringify(txns));
+
+        const itemName = _checkoutItem.name;
+        const modeLabel = isCredit ? 'Credit' : 'Cash';
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = '<i class="fa-solid fa-check"></i> Submit Checkout';
+
+        closeCheckoutModal();
+        renderSidebarStocks();
+        renderTable();
+        updateSummaryCards();
+        showToast(`Checkout done! ${itemName} ×${qty} — ${fmtPeso(total)} (${modeLabel})`);
+      });
+    }
   }
 
   // ── INITIAL LOAD ─────────────────────────────────────────────────────────
   await loadStocks();
 
-});
+};
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initInventory);
+} else {
+  initInventory();
+}
