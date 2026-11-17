@@ -165,7 +165,13 @@ document.addEventListener('DOMContentLoaded', () => {
         cashier: 'Cashier / POS'
       };
 
-      showAlert(`Welcome back, ${roleDisplayNames[role]}! Redirecting to workspace...`, 'success');
+      // Store session info for dashboard
+      sessionStorage.setItem('inv_current_user', JSON.stringify({
+        username,
+        role,
+        roleName: roleDisplayNames[role] || 'Administrator',
+        loginTime: new Date().toISOString()
+      }));
 
       if (rememberMe) {
         localStorage.setItem('inv_last_user', username);
@@ -173,9 +179,12 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.removeItem('inv_last_user');
       }
 
-      // Here you can hook up your actual redirection, e.g.:
-      // window.location.href = '/dashboard.html';
-      console.log('Login successful:', { username, role, rememberMe });
+      showAlert(`Welcome back, ${roleDisplayNames[role]}! Redirecting to Dashboard...`, 'success');
+
+      // Direct to dashboard
+      setTimeout(() => {
+        window.location.href = 'dashboard.html';
+      }, 700);
 
     } catch (err) {
       showAlert('Authentication failed. Please verify your credentials.', 'error');
