@@ -299,6 +299,8 @@ const initDashboard = async () => {
     if (discInp) discInp.value = '';
     const chargeInp = document.getElementById('coChargeInput');
     if (chargeInp) chargeInp.value = '';
+    const soldToInp = document.getElementById('coSoldToInput');
+    if (soldToInp) soldToInp.value = '';
 
     const minusBtn = document.getElementById('coQtyMinus');
     const plusBtn = document.getElementById('coQtyPlus');
@@ -458,9 +460,11 @@ const initDashboard = async () => {
 
         // Record in Supabase
         try {
-          const notes = isCredit 
+          const soldToVal = (document.getElementById('coSoldToInput')?.value || '').trim();
+          const customerNote = soldToVal ? ` | Sold to: ${soldToVal}` : '';
+          const notes = (isCredit 
             ? `Credit Sale (Charge: ₱${chargeAmt.toFixed(2)})` 
-            : (discountAmt > 0 ? `Cash Sale (Discount: ₱${discountAmt.toFixed(2)})` : 'Cash Sale');
+            : (discountAmt > 0 ? `Cash Sale (Discount: ₱${discountAmt.toFixed(2)})` : 'Cash Sale')) + customerNote;
 
           const { data: txn, error: txnErr } = await supabase
             .from('transactions')
@@ -500,6 +504,7 @@ const initDashboard = async () => {
         }
 
         // Record locally
+        const soldToVal = (document.getElementById('coSoldToInput')?.value || '').trim();
         let txns = [];
         try { txns = JSON.parse(localStorage.getItem('inv_transactions') || '[]'); } catch (e) {}
         txns.unshift({
@@ -508,6 +513,8 @@ const initDashboard = async () => {
           productId: _checkoutItem.id,
           productName: _checkoutItem.name,
           batch: _checkoutItem.batch || '',
+          customer: soldToVal,
+          soldTo: soldToVal,
           qty,
           unitPrice: price,
           subtotal,

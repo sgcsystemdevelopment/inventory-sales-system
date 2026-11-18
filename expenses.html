@@ -269,7 +269,7 @@
             <label for="expenseCategory">Category *</label>
             <div class="form-input-wrapper">
               <i class="fa-solid fa-layer-group field-icon"></i>
-              <select id="expenseCategory" required style="width:100%;padding:0.72rem 0.95rem 0.72rem 2.6rem;background:var(--bg-body);border:1px solid var(--border-color);border-radius:10px;font-family:inherit;font-size:0.9rem;color:var(--text-primary);outline:none;appearance:none;">
+              <select id="expenseCategory" class="form-select-field" required>
                 <option value="">Select category</option>
                 <option value="utilities">Utilities</option>
                 <option value="supplies">Supplies</option>
@@ -319,27 +319,37 @@
   <div class="stock-modal" id="checkoutModal" role="dialog" aria-modal="true">
     <div class="stock-modal-overlay" id="checkoutModalOverlay"></div>
     <div class="stock-modal-card" style="max-width:500px;padding:0 0 1.5rem;">
-      <div class="modal-title-row" style="padding:1.25rem 1.5rem 1rem;">
-        <div>
-          <h3 style="margin:0 0 2px;">Checkout</h3>
-          <p id="checkoutSubtitle" style="margin:0;font-size:0.8rem;color:var(--text-muted);">Select quantity and confirm sale</p>
-        </div>
+      <div class="checkout-header-centered">
+        <h3 id="checkoutTitle">Checkout</h3>
+        <p id="checkoutSubtitle">Select quantity and confirm sale</p>
         <button class="modal-close-icon-btn" id="closeCheckoutBtn"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <!-- Product Banner -->
       <div class="checkout-product-banner">
         <div class="checkout-product-icon"><i class="fa-solid fa-box"></i></div>
         <div class="checkout-product-details">
-          <h4 id="coProductName">—</h4>
-          <div class="checkout-product-meta">
-            <span class="co-price-pill" id="coUnitPrice">₱0.00/unit</span>
-            <span class="co-stock-badge" id="coStockAvail">0 units available</span>
+          <div class="checkout-product-toprow">
+            <h4 id="coProductName">—</h4>
+            <div class="checkout-product-meta">
+              <span class="co-price-pill" id="coUnitPrice">₱0.00/unit</span>
+              <span class="co-stock-badge" id="coStockAvail">0 units available</span>
+            </div>
           </div>
-          <span class="batch-tag" id="coBatchTag">—</span>
+          <div class="checkout-product-bottomrow">
+            <span class="batch-tag" id="coBatchTag">—</span>
+          </div>
         </div>
       </div>
       <!-- Form Body -->
       <div class="checkout-form-body">
+        <!-- Sold to Field -->
+        <div class="form-field">
+          <label for="coSoldToInput">Sold to</label>
+          <div class="form-input-wrapper">
+            <i class="fa-solid fa-user field-icon"></i>
+            <input type="text" id="coSoldToInput" placeholder="Sold to:">
+          </div>
+        </div>
         <div class="form-field">
           <label>Quantity</label>
           <div class="qty-stepper-wrap">
