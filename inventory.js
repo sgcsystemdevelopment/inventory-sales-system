@@ -37,7 +37,6 @@ const initInventory = async () => {
   const nextStockPage        = document.getElementById('nextStockPage');
 
   // Trigger Buttons
-  const topInputStockBtn     = document.getElementById('topInputStockBtn');
   const tableInputStockBtn   = document.getElementById('tableInputStockBtn');
   const sidebarInputStocksBtn= document.getElementById('sidebarInputStocksBtn');
 
@@ -521,7 +520,6 @@ const initInventory = async () => {
     editStockId.value = '';
   };
 
-  topInputStockBtn.addEventListener('click', () => openInputStockModal());
   tableInputStockBtn.addEventListener('click', () => openInputStockModal());
   if (sidebarInputStocksBtn) {
     sidebarInputStocksBtn.addEventListener('click', (e) => {
@@ -868,9 +866,9 @@ const initInventory = async () => {
     qtyInput.max = qty;
 
     const discInp = document.getElementById('coDiscountInput');
-    if (discInp) discInp.value = 0;
+    if (discInp) discInp.value = '';
     const chargeInp = document.getElementById('coChargeInput');
-    if (chargeInp) chargeInp.value = 0;
+    if (chargeInp) chargeInp.value = '';
 
     const minusBtn = document.getElementById('coQtyMinus');
     const plusBtn = document.getElementById('coQtyPlus');
@@ -884,16 +882,14 @@ const initInventory = async () => {
 
     const modal = document.getElementById('checkoutModal');
     if (modal) {
-      modal.style.display = 'flex';
-      requestAnimationFrame(() => modal.classList.add('open'));
+      modal.classList.add('active');
     }
   }
 
   function closeCheckoutModal() {
     const modal = document.getElementById('checkoutModal');
     if (!modal) return;
-    modal.classList.remove('open');
-    setTimeout(() => { modal.style.display = 'none'; }, 220);
+    modal.classList.remove('active');
     _checkoutItem = null;
   }
 
@@ -1094,6 +1090,10 @@ const initInventory = async () => {
         showToast(`Checkout done! ${itemName} ×${qty} — ${fmtPeso(total)} (${modeLabel})`);
       });
     }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && checkoutModal.classList.contains('active')) closeCheckoutModal();
+    });
   }
 
   // ── INITIAL LOAD ─────────────────────────────────────────────────────────

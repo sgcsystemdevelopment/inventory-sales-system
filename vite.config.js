@@ -14,7 +14,10 @@ export default defineConfig({
         main: resolve(__dirname, 'index.html'),
         dashboard: resolve(__dirname, 'dashboard.html'),
         inventory: resolve(__dirname, 'inventory.html'),
-        expenses: resolve(__dirname, 'expenses.html')
+        expenses: resolve(__dirname, 'expenses.html'),
+        transactions: resolve(__dirname, 'transactions.html'),
+        users: resolve(__dirname, 'users.html'),
+        settings: resolve(__dirname, 'settings.html')
       }
     }
   }

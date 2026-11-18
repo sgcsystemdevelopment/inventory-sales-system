@@ -296,9 +296,9 @@ const initDashboard = async () => {
     qtyInput.max = qty;
 
     const discInp = document.getElementById('coDiscountInput');
-    if (discInp) discInp.value = 0;
+    if (discInp) discInp.value = '';
     const chargeInp = document.getElementById('coChargeInput');
-    if (chargeInp) chargeInp.value = 0;
+    if (chargeInp) chargeInp.value = '';
 
     const minusBtn = document.getElementById('coQtyMinus');
     const plusBtn = document.getElementById('coQtyPlus');
@@ -312,16 +312,14 @@ const initDashboard = async () => {
 
     const modal = document.getElementById('checkoutModal');
     if (modal) {
-      modal.style.display = 'flex';
-      requestAnimationFrame(() => modal.classList.add('open'));
+      modal.classList.add('active');
     }
   }
 
   function closeCheckoutModal() {
     const modal = document.getElementById('checkoutModal');
     if (!modal) return;
-    modal.classList.remove('open');
-    setTimeout(() => { modal.style.display = 'none'; }, 220);
+    modal.classList.remove('active');
     _checkoutItem = null;
   }
 
@@ -535,7 +533,7 @@ const initDashboard = async () => {
     }
 
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && checkoutModal.classList.contains('open')) closeCheckoutModal();
+      if (e.key === 'Escape' && checkoutModal.classList.contains('active')) closeCheckoutModal();
     });
   }
 
@@ -587,13 +585,26 @@ const initDashboard = async () => {
       const cashOnHand = totalPaid - totalExpense;
 
       const mappedTxns = txns.map(t => ({
+        type: 'sale',
         ref: t.reference_no || `TXN-${String(t.id).slice(0, 6)}`,
-        customer: t.notes || 'Counter Sale',
+        description: t.notes || 'Counter Sale',
         date: t.created_at ? t.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10),
         amount: Number(t.total) || 0,
         discount: Number(t.discount) || 0,
         status: t.payment_status || 'paid'
       }));
+
+      const mappedExpenses = expenses.map(e => ({
+        type: 'expense',
+        ref: `EXP-${String(e.id).slice(0, 6)}`,
+        description: e.title || e.category || 'Expense',
+        date: e.expense_date || (e.created_at ? e.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10)),
+        amount: Number(e.amount) || 0,
+        discount: 0,
+        status: 'recorded'
+      }));
+
+      const allMapped = [...mappedTxns, ...mappedExpenses].sort((a, b) => b.date.localeCompare(a.date));
 
       return {
         paid: totalPaid,
@@ -629,7 +640,7 @@ const initDashboard = async () => {
           Math.round(totalExpense * 0.14),
           Math.round(totalExpense * 0.14)
         ],
-        transactions: mappedTxns
+        transactions: allMapped
       };
     }
 
@@ -649,11 +660,11 @@ const initDashboard = async () => {
       chartUnpaid:  [1200, 2100, 800,  1900, 600,   2400, 1100],
       chartExpense: [1500, 1200, 1800, 900,  2200,  1100, 1700],
       transactions: [
-        { ref: 'INV-00234', customer: 'Maria Santos',    date: '2026-11-16', amount: 15800, discount: 500,  status: 'paid' },
-        { ref: 'INV-00233', customer: 'Jose Reyes',      date: '2026-11-16', amount: 8200,  discount: 0,    status: 'unpaid' },
-        { ref: 'INV-00232', customer: 'Ana Cruz',        date: '2026-11-15', amount: 24500, discount: 1200, status: 'paid' },
-        { ref: 'INV-00231', customer: 'Carlo Villanueva',date: '2026-11-15', amount: 5300,  discount: 300,  status: 'partial' },
-        { ref: 'INV-00230', customer: 'Grace Lim',       date: '2026-11-14', amount: 11000, discount: 0,    status: 'paid' },
+        { type:'sale',    ref: 'INV-00234', description: 'Counter Sale',          date: '2026-11-16', amount: 15800, discount: 500,  status: 'paid' },
+        { type:'sale',    ref: 'INV-00233', description: 'Counter Sale',          date: '2026-11-16', amount: 8200,  discount: 0,    status: 'unpaid' },
+        { type:'sale',    ref: 'INV-00232', description: 'Counter Sale',          date: '2026-11-15', amount: 24500, discount: 1200, status: 'paid' },
+        { type:'expense', ref: 'EXP-00001', description: 'Electric Bill - Nov',   date: '2026-11-15', amount: 5300,  discount: 0,    status: 'recorded' },
+        { type:'expense', ref: 'EXP-00002', description: 'Office Supplies',       date: '2026-11-14', amount: 1800,  discount: 0,    status: 'recorded' },
       ]
     };
 
@@ -667,8 +678,9 @@ const initDashboard = async () => {
       baseMock.discount += extraDisc;
 
       const formattedLocal = localTxns.map(t => ({
+        type: 'sale',
         ref: `TXN-${String(t.id).slice(-5)}`,
-        customer: `${t.productName} (x${t.qty})`,
+        description: `${t.productName} (x${t.qty})`,
         date: t.date ? t.date.slice(0, 10) : new Date().toISOString().slice(0, 10),
         amount: Number(t.total) || 0,
         discount: Number(t.discount) || 0,
@@ -878,20 +890,27 @@ const initDashboard = async () => {
       return;
     }
 
-    tbody.innerHTML = paged.map(t => `
+    const typeBadgeMap = {
+      sale:    { cls: 'paid',    icon: 'fa-shopping-cart',         label: 'Sale' },
+      expense: { cls: 'expense', icon: 'fa-file-invoice-dollar',   label: 'Expense' },
+    };
+    tbody.innerHTML = paged.map(t => {
+      const tb = typeBadgeMap[t.type] || { cls: 'paid', icon: 'fa-circle', label: 'Sale' };
+      return `
       <tr>
+        <td><span class="badge ${tb.cls}" style="display:inline-flex;align-items:center;gap:5px;font-size:0.72rem;"><i class="fa-solid ${tb.icon}" style="font-size:0.65rem;"></i>${tb.label}</span></td>
         <td style="font-weight:700; color:var(--accent);">${t.ref}</td>
-        <td>${t.customer}</td>
+        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${t.description || t.customer || '—'}</td>
         <td>${t.date}</td>
         <td style="font-weight:700;">${currency(t.amount)}</td>
-        <td style="color: var(--color-discount);">${t.discount > 0 ? currency(t.discount) : '—'}</td>
         <td>
-          <span class="badge ${t.status}">
+          <span class="badge ${t.status || 'paid'}">
             <i class="fa-solid fa-circle" style="font-size:0.45rem;"></i>
-            ${t.status.charAt(0).toUpperCase() + t.status.slice(1)}
+            ${((t.status || 'paid').charAt(0).toUpperCase() + (t.status || 'paid').slice(1))}
           </span>
         </td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
 
     info.textContent = `Showing ${start + 1}–${Math.min(start + perPage, transactions.length)} of ${transactions.length} records`;
     pageNum.textContent = `${currentPage} / ${totalPages}`;
@@ -921,9 +940,9 @@ const initDashboard = async () => {
     const q = tableSearch.value.trim().toLowerCase();
     if (!q) return allTransactions;
     return allTransactions.filter(t =>
-      t.ref.toLowerCase().includes(q) ||
-      t.customer.toLowerCase().includes(q) ||
-      t.status.toLowerCase().includes(q)
+      (t.ref || '').toLowerCase().includes(q) ||
+      (t.description || t.customer || '').toLowerCase().includes(q) ||
+      (t.status || '').toLowerCase().includes(q)
     );
   };
 

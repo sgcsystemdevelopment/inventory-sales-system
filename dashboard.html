@@ -34,10 +34,7 @@
         <i class="fa-solid fa-boxes-stacked"></i>
         <span>Inventory</span>
       </a>
-      <a href="#" class="nav-item">
-        <i class="fa-solid fa-file-invoice-dollar"></i>
-        <span>Sales Reports</span>
-      </a>
+      <a href="transactions.html" class="nav-item"><i class="fa-solid fa-file-invoice-dollar"></i><span>Sales Reports</span></a>
 
       <div class="nav-label">Stocks</div>
       <div class="sidebar-stocks-list" id="sidebarStocksList">
@@ -49,20 +46,11 @@
         <i class="fa-solid fa-money-bill-wave"></i>
         <span>Expenses</span>
       </a>
-      <a href="#" class="nav-item">
-        <i class="fa-solid fa-receipt"></i>
-        <span>Transactions</span>
-      </a>
+      <a href="transactions.html" class="nav-item"><i class="fa-solid fa-receipt"></i><span>Transactions</span></a>
 
       <div class="nav-label">System</div>
-      <a href="#" class="nav-item">
-        <i class="fa-solid fa-users"></i>
-        <span>User Management</span>
-      </a>
-      <a href="#" class="nav-item">
-        <i class="fa-solid fa-gear"></i>
-        <span>Settings</span>
-      </a>
+      <a href="users.html" class="nav-item"><i class="fa-solid fa-users"></i><span>User Management</span></a>
+      <a href="settings.html" class="nav-item"><i class="fa-solid fa-gear"></i><span>Settings</span></a>
     </nav>
 
     <div class="sidebar-footer">
@@ -265,17 +253,17 @@
         <div class="table-header">
           <div>
             <h3>Recent Transactions</h3>
-            <p>Latest sales and payment activity</p>
+            <p>Latest sales, expenses, and financial activity</p>
           </div>
           <div class="table-controls">
             <div class="search-box">
               <i class="fa-solid fa-magnifying-glass"></i>
               <input type="text" id="tableSearch" placeholder="Search transactions...">
             </div>
-            <button class="btn-export">
-              <i class="fa-solid fa-download"></i>
-              Export
-            </button>
+            <a href="transactions.html" class="btn-export" style="text-decoration:none;">
+              <i class="fa-solid fa-external-link-alt"></i>
+              View All
+            </a>
           </div>
         </div>
 
@@ -283,19 +271,18 @@
           <table>
             <thead>
               <tr>
-                <th>#</th>
+                <th>Type</th>
                 <th>Reference</th>
-                <th>Customer</th>
+                <th>Description</th>
                 <th>Date</th>
                 <th>Amount</th>
-                <th>Discount</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody id="transactionTableBody">
               <!-- Populated by dashboard.js -->
               <tr class="empty-row">
-                <td colspan="7">
+                <td colspan="6">
                   <div class="empty-state">
                     <i class="fa-solid fa-inbox"></i>
                     <p>No transactions yet. Connect your Supabase database to load live data.</p>
@@ -327,7 +314,7 @@
   </div><!-- end .main-layout -->
 
   <!-- ===================== CHECKOUT MODAL ===================== -->
-  <div class="stock-modal" id="checkoutModal" role="dialog" aria-modal="true" style="display:none;">
+  <div class="stock-modal" id="checkoutModal" role="dialog" aria-modal="true">
     <div class="stock-modal-overlay" id="checkoutModalOverlay"></div>
     <div class="stock-modal-card" style="max-width:500px;padding:0 0 1.5rem;">
       <div class="modal-title-row" style="padding:1.25rem 1.5rem 1rem;">
@@ -380,7 +367,7 @@
           <div class="input-action-group">
             <div class="form-input-wrapper">
               <i class="fa-solid fa-tag field-icon"></i>
-              <input type="number" id="coDiscountInput" min="0" step="0.01" value="0" placeholder="Enter discount amount (₱)">
+              <input type="number" id="coDiscountInput" min="0" step="0.01" placeholder="Enter discount amount (₱)">
             </div>
             <button type="button" class="btn-addon-action" id="btnApplyDiscount">
               <i class="fa-solid fa-percent"></i> Add Discount
@@ -394,7 +381,7 @@
           <div class="input-action-group">
             <div class="form-input-wrapper">
               <i class="fa-solid fa-receipt field-icon"></i>
-              <input type="number" id="coChargeInput" min="0" step="0.01" value="0" placeholder="Enter charge amount (₱)">
+              <input type="number" id="coChargeInput" min="0" step="0.01" placeholder="Enter charge amount (₱)">
             </div>
             <button type="button" class="btn-addon-action" id="btnApplyCharge">
               <i class="fa-solid fa-plus"></i> Add Charge

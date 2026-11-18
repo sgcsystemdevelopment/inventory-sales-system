@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>User Management - Inventory &amp; Sales System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="users.css">
+</head>
+<body>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <img src="logo.png" alt="Simpal Logo" class="sidebar-logo" id="sidebarLogo">
+      <button class="sidebar-close-btn" id="sidebarCloseBtn" aria-label="Close sidebar">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-label">Main</div>
+      <a href="dashboard.html" class="nav-item"><i class="fa-solid fa-gauge-high"></i><span>Dashboard</span></a>
+      <a href="inventory.html" class="nav-item"><i class="fa-solid fa-boxes-stacked"></i><span>Inventory</span></a>
+      <a href="transactions.html" class="nav-item"><i class="fa-solid fa-file-invoice-dollar"></i><span>Sales Reports</span></a>
+
+      <div class="nav-label">Stocks</div>
+      <div class="sidebar-stocks-list" id="sidebarStocksList">
+        <span class="sidebar-stock-empty">No stocks added yet.</span>
+      </div>
+
+      <div class="nav-label">Finance</div>
+      <a href="expenses.html" class="nav-item"><i class="fa-solid fa-money-bill-wave"></i><span>Expenses</span></a>
+      <a href="transactions.html" class="nav-item"><i class="fa-solid fa-receipt"></i><span>Transactions</span></a>
+
+      <div class="nav-label">System</div>
+      <a href="users.html" class="nav-item active"><i class="fa-solid fa-users"></i><span>User Management</span></a>
+      <a href="settings.html" class="nav-item"><i class="fa-solid fa-gear"></i><span>Settings</span></a>
+    </nav>
+    <div class="sidebar-footer">
+      <a href="index.html" class="nav-item logout-btn" id="logoutBtn">
+        <i class="fa-solid fa-right-from-bracket"></i><span>Logout</span>
+      </a>
+    </div>
+  </aside>
+
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <div class="main-layout" id="mainLayout">
+    <header class="topnav">
+      <div class="topnav-left">
+        <button class="menu-btn" id="menuBtn"><i class="fa-solid fa-bars"></i></button>
+        <div class="page-title">
+          <h1>User Management</h1>
+          <p>Manage system users and access control</p>
+        </div>
+      </div>
+      <div class="topnav-right">
+        <button id="themeToggleBtn" class="icon-btn" title="Toggle Theme">
+          <i class="fa-regular fa-moon" id="themeIcon"></i>
+        </button>
+        <div class="user-avatar" id="userAvatar" title="Logged in as Admin">
+          <i class="fa-solid fa-user-tie"></i>
+        </div>
+      </div>
+    </header>
+
+    <main class="page-content">
+
+      <!-- SUMMARY CARDS -->
+      <section class="users-summary-grid">
+        <div class="user-stat-card total">
+          <div class="user-stat-icon"><i class="fa-solid fa-users"></i></div>
+          <div>
+            <div class="user-stat-label">Total Users</div>
+            <div class="user-stat-val" id="statTotalUsers">0</div>
+            <div class="user-stat-sub">Registered accounts</div>
+          </div>
+        </div>
+        <div class="user-stat-card active">
+          <div class="user-stat-icon"><i class="fa-solid fa-user-check"></i></div>
+          <div>
+            <div class="user-stat-label">Active Users</div>
+            <div class="user-stat-val" id="statActiveUsers">0</div>
+            <div class="user-stat-sub">Currently active</div>
+          </div>
+        </div>
+        <div class="user-stat-card admins">
+          <div class="user-stat-icon"><i class="fa-solid fa-user-shield"></i></div>
+          <div>
+            <div class="user-stat-label">Admins</div>
+            <div class="user-stat-val" id="statAdmins">0</div>
+            <div class="user-stat-sub">Admin role accounts</div>
+          </div>
+        </div>
+        <div class="user-stat-card lastlog">
+          <div class="user-stat-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
+          <div>
+            <div class="user-stat-label">Last Activity</div>
+            <div class="user-stat-val" id="statLastLogin" style="font-size:1rem;">—</div>
+            <div class="user-stat-sub">Most recent login</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- USERS TABLE -->
+      <section class="table-card">
+        <div class="table-header">
+          <div>
+            <h3>System Users</h3>
+            <p>Manage user accounts, roles, and permissions</p>
+          </div>
+          <div class="table-controls">
+            <div class="search-box">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="text" id="userSearch" placeholder="Search users...">
+            </div>
+            <button class="btn-primary-header" id="addUserBtn">
+              <i class="fa-solid fa-plus"></i>
+              <span>Add User</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Username</th>
+                <th>Full Name</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Last Login</th>
+                <th style="text-align:center;width:140px;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody">
+              <tr class="empty-row">
+                <td colspan="7">
+                  <div class="empty-state">
+                    <i class="fa-solid fa-inbox"></i>
+                    <p>Loading users...</p>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-pagination">
+          <span id="usersTableInfo">Showing 0 records</span>
+          <div class="pagination-btns">
+            <button class="page-btn" id="prevUsersPage" disabled><i class="fa-solid fa-chevron-left"></i></button>
+            <span id="usersPageNum">1 / 1</span>
+            <button class="page-btn" id="nextUsersPage" disabled><i class="fa-solid fa-chevron-right"></i></button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <footer class="dash-footer">
+      <p>&copy; 2026 Inventory &amp; Sales System &bull; Simpal Group of Companies</p>
+      <p class="dev-credit">Design and Develop by: <span>danpastolero</span></p>
+    </footer>
+  </div>
+
+  <!-- ADD / EDIT USER MODAL -->
+  <div class="stock-modal" id="userModal" role="dialog" aria-modal="true">
+    <div class="stock-modal-overlay" id="userModalOverlay"></div>
+    <div class="stock-modal-card" style="max-width:500px;">
+      <div class="modal-title-row">
+        <div>
+          <h3 id="userModalTitle">Add User</h3>
+          <p id="userModalSubtitle" style="font-size:0.8rem;color:var(--text-muted);">Create a new system account</p>
+        </div>
+        <button class="modal-close-icon-btn" id="closeUserModalBtn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="userForm">
+        <input type="hidden" id="editUserId">
+        <div class="stock-form-grid">
+          <div class="form-field">
+            <label for="userUsername">Username *</label>
+            <div class="form-input-wrapper">
+              <i class="fa-solid fa-user field-icon"></i>
+              <input type="text" id="userUsername" placeholder="e.g. jsmith" required>
+            </div>
+          </div>
+          <div class="form-field">
+            <label for="userFullName">Full Name *</label>
+            <div class="form-input-wrapper">
+              <i class="fa-solid fa-id-card field-icon"></i>
+              <input type="text" id="userFullName" placeholder="e.g. John Smith" required>
+            </div>
+          </div>
+          <div class="form-field">
+            <label for="userRole">Role *</label>
+            <div class="form-input-wrapper">
+              <i class="fa-solid fa-shield-halved field-icon"></i>
+              <select id="userRole" required style="width:100%;padding:0.72rem 0.95rem 0.72rem 2.6rem;background:var(--bg-body);border:1px solid var(--border-color);border-radius:10px;font-family:inherit;font-size:0.9rem;color:var(--text-primary);outline:none;appearance:none;">
+                <option value="">Select role</option>
+                <option value="admin">Admin</option>
+                <option value="manager">Manager</option>
+                <option value="cashier">Cashier</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-field" style="display:flex;align-items:center;gap:0.75rem;padding-top:1.5rem;">
+            <label style="margin:0;font-weight:600;">Active Account</label>
+            <input type="checkbox" id="userIsActive" checked style="width:18px;height:18px;accent-color:var(--primary);cursor:pointer;">
+          </div>
+        </div>
+        <div class="modal-btn-actions">
+          <button type="button" class="btn-modal-cancel" id="cancelUserBtn">Cancel</button>
+          <button type="submit" class="btn-modal-submit">
+            <i class="fa-solid fa-check"></i>
+            <span id="userSaveBtnText">Save User</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- PASSWORD RESET MODAL -->
+  <div class="stock-modal" id="pwResetModal" role="dialog" aria-modal="true">
+    <div class="stock-modal-overlay" id="pwResetOverlay"></div>
+    <div class="stock-modal-card" style="max-width:420px;">
+      <div class="modal-title-row">
+        <div>
+          <h3>Reset Password</h3>
+          <p id="pwResetSubtitle" style="font-size:0.8rem;color:var(--text-muted);">Send password reset</p>
+        </div>
+        <button class="modal-close-icon-btn" id="closePwResetBtn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div style="padding:0 0 1rem;">
+        <p style="font-size:0.88rem;color:var(--text-secondary);margin-bottom:1rem;">A password reset link will be sent to this user. The user must have a valid email registered in the authentication system.</p>
+        <div class="modal-btn-actions">
+          <button type="button" class="btn-modal-cancel" id="cancelPwResetBtn">Cancel</button>
+          <button type="button" class="btn-modal-submit" id="confirmPwResetBtn">
+            <i class="fa-solid fa-paper-plane"></i> Send Reset Link
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== CHECKOUT MODAL ===================== -->
+  <div class="stock-modal" id="checkoutModal" role="dialog" aria-modal="true">
+    <div class="stock-modal-overlay" id="checkoutModalOverlay"></div>
+    <div class="stock-modal-card" style="max-width:500px;padding:0 0 1.5rem;">
+      <div class="modal-title-row" style="padding:1.25rem 1.5rem 1rem;">
+        <div>
+          <h3 style="margin:0 0 2px;">Checkout</h3>
+          <p id="checkoutSubtitle" style="margin:0;font-size:0.8rem;color:var(--text-muted);">Select quantity and confirm sale</p>
+        </div>
+        <button class="modal-close-icon-btn" id="closeCheckoutBtn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <!-- Product Banner -->
+      <div class="checkout-product-banner">
+        <div class="checkout-product-icon"><i class="fa-solid fa-box"></i></div>
+        <div class="checkout-product-details">
+          <h4 id="coProductName">—</h4>
+          <div class="checkout-product-meta">
+            <span class="co-price-pill" id="coUnitPrice">₱0.00/unit</span>
+            <span class="co-stock-badge" id="coStockAvail">0 units available</span>
+          </div>
+          <span class="batch-tag" id="coBatchTag">—</span>
+        </div>
+      </div>
+      <!-- Form Body -->
+      <div class="checkout-form-body">
+        <div class="form-field">
+          <label>Quantity</label>
+          <div class="qty-stepper-wrap">
+            <button type="button" class="stepper-btn" id="coQtyMinus"><i class="fa-solid fa-minus"></i></button>
+            <input type="number" id="coQtyInput" min="1" value="1">
+            <button type="button" class="stepper-btn" id="coQtyPlus"><i class="fa-solid fa-plus"></i></button>
+          </div>
+        </div>
+        <!-- Payment Method: Cash or Credit -->
+        <div class="form-field">
+          <label>Payment Method</label>
+          <div class="payment-method-toggle">
+            <button type="button" class="btn-pay-mode active" id="payModeCash">
+              <i class="fa-solid fa-money-bill-wave"></i> Cash
+            </button>
+            <button type="button" class="btn-pay-mode" id="payModeCredit">
+              <i class="fa-solid fa-credit-card"></i> Credit
+            </button>
+          </div>
+        </div>
+        <!-- Cash Section: Discount -->
+        <div class="form-field" id="cashSection">
+          <label for="coDiscountInput">Discount (₱)</label>
+          <div class="input-action-group">
+            <div class="form-input-wrapper">
+              <i class="fa-solid fa-tag field-icon"></i>
+              <input type="number" id="coDiscountInput" min="0" step="0.01" placeholder="Enter discount amount (₱)">
+            </div>
+            <button type="button" class="btn-addon-action" id="btnApplyDiscount">
+              <i class="fa-solid fa-percent"></i> Add Discount
+            </button>
+          </div>
+        </div>
+        <!-- Credit Section: Charge -->
+        <div class="form-field" id="creditSection" style="display:none;">
+          <label for="coChargeInput">Additional Charge (₱)</label>
+          <div class="input-action-group">
+            <div class="form-input-wrapper">
+              <i class="fa-solid fa-receipt field-icon"></i>
+              <input type="number" id="coChargeInput" min="0" step="0.01" placeholder="Enter charge amount (₱)">
+            </div>
+            <button type="button" class="btn-addon-action" id="btnApplyCharge">
+              <i class="fa-solid fa-plus"></i> Add Charge
+            </button>
+          </div>
+        </div>
+        <!-- Summary Box -->
+        <div class="checkout-summary-box">
+          <div class="co-summary-row"><span>Subtotal</span><span id="coSubtotal">₱0.00</span></div>
+          <div class="co-summary-row discount" id="summaryDiscountRow"><span>Discount</span><span id="coDiscount">-₱0.00</span></div>
+          <div class="co-summary-row charge" id="summaryChargeRow" style="display:none;"><span>Additional Charge</span><span id="coCharge">+₱0.00</span></div>
+          <div class="co-summary-row grand-total"><span>Total</span><span id="coGrandTotal">₱0.00</span></div>
+        </div>
+      </div>
+      <div class="modal-btn-actions" style="padding:0 1.5rem 0;margin-top:1rem;">
+        <button class="btn-modal-cancel" id="cancelCheckoutBtn">Cancel</button>
+        <button class="btn-modal-submit" id="confirmCheckoutBtn">
+          <i class="fa-solid fa-check"></i> Submit Checkout
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast-notice" id="toastNotice" style="display:none;">
+    <i class="fa-solid fa-circle-check" id="toastIcon"></i>
+    <span id="toastMsg">Done!</span>
+  </div>
+
+  <script type="module" src="users.js"></script>
+</body>
+</html>

@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>System Settings - Inventory &amp; Sales System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="settings.css">
+</head>
+<body>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <img src="logo.png" alt="Simpal Logo" class="sidebar-logo" id="sidebarLogo">
+      <button class="sidebar-close-btn" id="sidebarCloseBtn" aria-label="Close sidebar">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-label">Main</div>
+      <a href="dashboard.html" class="nav-item"><i class="fa-solid fa-gauge-high"></i><span>Dashboard</span></a>
+      <a href="inventory.html" class="nav-item"><i class="fa-solid fa-boxes-stacked"></i><span>Inventory</span></a>
+      <a href="transactions.html" class="nav-item"><i class="fa-solid fa-file-invoice-dollar"></i><span>Sales Reports</span></a>
+
+      <div class="nav-label">Stocks</div>
+      <div class="sidebar-stocks-list" id="sidebarStocksList">
+        <span class="sidebar-stock-empty">No stocks added yet.</span>
+      </div>
+
+      <div class="nav-label">Finance</div>
+      <a href="expenses.html" class="nav-item"><i class="fa-solid fa-money-bill-wave"></i><span>Expenses</span></a>
+      <a href="transactions.html" class="nav-item"><i class="fa-solid fa-receipt"></i><span>Transactions</span></a>
+
+      <div class="nav-label">System</div>
+      <a href="users.html" class="nav-item"><i class="fa-solid fa-users"></i><span>User Management</span></a>
+      <a href="settings.html" class="nav-item active"><i class="fa-solid fa-gear"></i><span>Settings</span></a>
+    </nav>
+    <div class="sidebar-footer">
+      <a href="index.html" class="nav-item logout-btn" id="logoutBtn">
+        <i class="fa-solid fa-right-from-bracket"></i><span>Logout</span>
+      </a>
+    </div>
+  </aside>
+
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <div class="main-layout" id="mainLayout">
+    <header class="topnav">
+      <div class="topnav-left">
+        <button class="menu-btn" id="menuBtn"><i class="fa-solid fa-bars"></i></button>
+        <div class="page-title">
+          <h1>System Settings</h1>
+          <p>Configure business, inventory, checkout, security, and appearance</p>
+        </div>
+      </div>
+      <div class="topnav-right">
+        <button id="themeToggleBtn" class="icon-btn" title="Toggle Theme">
+          <i class="fa-regular fa-moon" id="themeIcon"></i>
+        </button>
+        <div class="user-avatar" id="userAvatar" title="Logged in as Admin">
+          <i class="fa-solid fa-user-tie"></i>
+        </div>
+      </div>
+    </header>
+
+    <main class="page-content">
+
+      <!-- TABS -->
+      <div class="settings-tabs">
+        <button class="settings-tab-btn active" data-tab="business">
+          <i class="fa-solid fa-store"></i> Business Info
+        </button>
+        <button class="settings-tab-btn" data-tab="inventory">
+          <i class="fa-solid fa-boxes-stacked"></i> Inventory
+        </button>
+        <button class="settings-tab-btn" data-tab="sales">
+          <i class="fa-solid fa-cash-register"></i> Sales &amp; Checkout
+        </button>
+        <button class="settings-tab-btn" data-tab="payments">
+          <i class="fa-solid fa-credit-card"></i> Payments
+        </button>
+        <button class="settings-tab-btn" data-tab="security">
+          <i class="fa-solid fa-shield-halved"></i> Security
+        </button>
+        <button class="settings-tab-btn" data-tab="appearance">
+          <i class="fa-solid fa-palette"></i> Appearance
+        </button>
+        <button class="settings-tab-btn" data-tab="data">
+          <i class="fa-solid fa-database"></i> Data Management
+        </button>
+      </div>
+
+      <!-- PANEL: BUSINESS INFO -->
+      <div class="settings-panel active" id="tab-business">
+        <form id="businessForm">
+          <div class="settings-section">
+            <h4>General Business Information</h4>
+            <p>Setup company details displayed on receipts and transaction reports.</p>
+            <div class="settings-form-grid">
+              <div class="form-field">
+                <label>Business Name</label>
+                <div class="form-input-wrapper">
+                  <i class="fa-solid fa-building field-icon"></i>
+                  <input type="text" id="cfgBizName" value="Simpal Group of Companies" required>
+                </div>
+              </div>
+              <div class="form-field">
+                <label>Contact Number / Email</label>
+                <div class="form-input-wrapper">
+                  <i class="fa-solid fa-phone field-icon"></i>
+                  <input type="text" id="cfgBizContact" value="+63 912 345 6789 / info@simpal.com">
+                </div>
+              </div>
+              <div class="form-field full-width">
+                <label>Store Address</label>
+                <div class="form-input-wrapper">
+                  <i class="fa-solid fa-location-dot field-icon" style="top:0.85rem;"></i>
+                  <textarea id="cfgBizAddress" rows="2" style="width:100%;padding:0.72rem 0.95rem 0.72rem 2.6rem;background:var(--bg-body);border:1px solid var(--border-color);border-radius:10px;font-family:inherit;font-size:0.9rem;color:var(--text-primary);outline:none;resize:vertical;">Metro Manila, Philippines</textarea>
+                </div>
+              </div>
+              <div class="form-field">
+                <label>Default Currency</label>
+                <div class="form-input-wrapper">
+                  <i class="fa-solid fa-peso-sign field-icon"></i>
+                  <input type="text" value="PHP (₱) - Philippine Peso" readonly style="opacity:0.8;background:var(--border-color);">
+                </div>
+              </div>
+              <div class="form-field">
+                <label>System Timezone</label>
+                <div class="form-input-wrapper">
+                  <i class="fa-solid fa-earth-asia field-icon"></i>
+                  <select id="cfgTimezone" style="width:100%;padding:0.72rem 0.95rem 0.72rem 2.6rem;background:var(--bg-body);border:1px solid var(--border-color);border-radius:10px;font-family:inherit;font-size:0.9rem;color:var(--text-primary);outline:none;appearance:none;">
+                    <option value="Asia/Manila" selected>Asia/Manila (UTC+08:00)</option>
+                    <option value="UTC">UTC (UTC+00:00)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <button type="submit" class="settings-save-btn"><i class="fa-solid fa-floppy-disk"></i> Save Business Info</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- PANEL: INVENTORY -->
+      <div class="settings-panel" id="tab-inventory">
+        <form id="inventoryForm">
+          <div class="settings-section">
+            <h4>Stock &amp; Catalog Rules</h4>
+            <p>Threshold alerts, batch numbering, and inventory valuation controls.</p>
+            <div class="settings-form-grid">
+              <div class="form-field">
+                <label>Default Low-Stock Threshold</label>
+                <div class="form-input-wrapper">
+                  <i class="fa-solid fa-triangle-exclamation field-icon"></i>
+                  <input type="number" id="cfgLowStock" min="1" value="10" required>
+                </div>
+              </div>
+              <div class="form-field">
+                <label>Default Batch Code Prefix</label>
+                <div class="form-input-wrapper">
+                  <i class="fa-solid fa-barcode field-icon"></i>
+                  <input type="text" id="cfgBatchPrefix" value="BATCH-2026-" required>
+                </div>
+              </div>
+              <div class="form-field full-width">
+                <label>Valuation Method</label>
+                <div class="form-input-wrapper">
+                  <i class="fa-solid fa-calculator field-icon"></i>
+                  <input type="text" value="Standard Cost (Unit Price × On-Hand Quantity)" readonly style="opacity:0.8;background:var(--border-color);">
+                </div>
+              </div>
+            </div>
+            <button type="submit" class="settings-save-btn"><i class="fa-solid fa-floppy-disk"></i> Save Inventory Settings</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- PANEL: SALES & CHECKOUT -->
+      <div class="settings-panel" id="tab-sales">
+        <form id="salesForm">
+          <div class="settings-section">
+            <h4>Checkout &amp; Discounts</h4>
+            <p>Configure point-of-sale behavior and default discount options.</p>
+            <div class="settings-form-grid">
+              <div class="form-field">
+                <label>Default Discount Amount (₱)</label>
+                <div class="form-input-wrapper">
+                  <i class="fa-solid fa-tag field-icon"></i>
+                  <input type="number" id="cfgDefDiscount" min="0" step="0.01" value="0.00">
+                </div>
+              </div>
+              <div class="form-field">
+                <label>Default Tax / VAT % (Optional)</label>
+                <div class="form-input-wrapper">
+                  <i class="fa-solid fa-percent field-icon"></i>
+                  <input type="number" id="cfgTaxRate" min="0" max="100" step="0.1" value="0">
+                </div>
+              </div>
+            </div>
+            <button type="submit" class="settings-save-btn"><i class="fa-solid fa-floppy-disk"></i> Save Sales Settings</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- PANEL: PAYMENTS -->
+      <div class="settings-panel" id="tab-payments">
+        <form id="paymentsForm">
+          <div class="settings-section">
+            <h4>Enabled Payment Methods</h4>
+            <p>Toggle which methods are allowed during customer checkout.</p>
+            <div class="payment-toggle-row">
+              <div class="payment-toggle-item">
+                <label for="payCash"><i class="fa-solid fa-money-bill-wave" style="color:#10b981;"></i> Cash Payment</label>
+                <input type="checkbox" id="payCash" checked style="width:20px;height:20px;accent-color:var(--primary);cursor:pointer;">
+              </div>
+              <div class="payment-toggle-item">
+                <label for="payCredit"><i class="fa-solid fa-credit-card" style="color:#f59e0b;"></i> Store Credit / Unpaid Accounts</label>
+                <input type="checkbox" id="payCredit" checked style="width:20px;height:20px;accent-color:var(--primary);cursor:pointer;">
+              </div>
+              <div class="payment-toggle-item">
+                <label for="payGcash"><i class="fa-solid fa-mobile-screen" style="color:#2563eb;"></i> GCash / E-Wallet</label>
+                <input type="checkbox" id="payGcash" checked style="width:20px;height:20px;accent-color:var(--primary);cursor:pointer;">
+              </div>
+              <div class="payment-toggle-item">
+                <label for="payBank"><i class="fa-solid fa-building-columns" style="color:#8b5cf6;"></i> Bank Transfer</label>
+                <input type="checkbox" id="payBank" checked style="width:20px;height:20px;accent-color:var(--primary);cursor:pointer;">
+              </div>
+            </div>
+            <button type="submit" class="settings-save-btn"><i class="fa-solid fa-floppy-disk"></i> Save Payment Methods</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- PANEL: SECURITY -->
+      <div class="settings-panel" id="tab-security">
+        <div class="settings-section">
+          <h4>Account Security</h4>
+          <p>Update your authentication password and manage active user sessions.</p>
+          <form id="pwChangeForm">
+            <div class="settings-form-grid">
+              <div class="form-field">
+                <label>New Password</label>
+                <div class="form-input-wrapper">
+                  <i class="fa-solid fa-key field-icon"></i>
+                  <input type="password" id="newPassword" placeholder="Minimum 6 characters" minlength="6" required>
+                </div>
+              </div>
+              <div class="form-field">
+                <label>Confirm New Password</label>
+                <div class="form-input-wrapper">
+                  <i class="fa-solid fa-check-double field-icon"></i>
+                  <input type="password" id="confirmPassword" placeholder="Re-type new password" minlength="6" required>
+                </div>
+              </div>
+            </div>
+            <button type="submit" class="settings-save-btn"><i class="fa-solid fa-lock"></i> Update Password</button>
+          </form>
+        </div>
+
+        <div class="settings-section">
+          <h4>Active Sessions</h4>
+          <p>Revoke your login session immediately across all devices.</p>
+          <button type="button" class="settings-danger-btn" id="btnSignOutAll">
+            <i class="fa-solid fa-right-from-bracket"></i> Sign Out Everywhere
+          </button>
+        </div>
+      </div>
+
+      <!-- PANEL: APPEARANCE -->
+      <div class="settings-panel" id="tab-appearance">
+        <div class="settings-section">
+          <h4>Theme &amp; Display</h4>
+          <p>Personalize interface style according to your workspace lighting preference.</p>
+          <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-top:1rem;">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;">
+              <input type="radio" name="appTheme" value="light" id="themeLight" style="accent-color:var(--primary);">
+              <i class="fa-regular fa-sun" style="color:#f59e0b;"></i> Light Mode
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;">
+              <input type="radio" name="appTheme" value="dark" id="themeDark" style="accent-color:var(--primary);">
+              <i class="fa-regular fa-moon" style="color:#8b5cf6;"></i> Dark Mode
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- PANEL: DATA MANAGEMENT -->
+      <div class="settings-panel" id="tab-data">
+        <div class="settings-section">
+          <h4>System Backup &amp; CSV Exports</h4>
+          <p>Export live tables directly as CSV spreadsheets for external reporting.</p>
+          <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+            <button type="button" class="btn-export-sm" id="btnExportStocks">
+              <i class="fa-solid fa-boxes-stacked"></i> Export Stock Masterlist
+            </button>
+            <button type="button" class="btn-export-sm" id="btnExportTxns">
+              <i class="fa-solid fa-receipt"></i> Export Transactions
+            </button>
+            <button type="button" class="btn-export-sm" id="btnExportExpenses">
+              <i class="fa-solid fa-file-invoice-dollar"></i> Export Expenses
+            </button>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h4>System Build Information</h4>
+          <p>Application architecture and operational release details.</p>
+          <div style="font-size:0.86rem;line-height:1.7;color:var(--text-secondary);">
+            <div><strong>Application:</strong> Inventory &amp; Sales System</div>
+            <div><strong>Version:</strong> 2.0.0 (Enterprise Enhancement)</div>
+            <div><strong>Target Stack:</strong> Vite + Vanilla JS + Supabase + Vercel</div>
+            <div><strong>Developer:</strong> danpastolero</div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <footer class="dash-footer">
+      <p>&copy; 2026 Inventory &amp; Sales System &bull; Simpal Group of Companies</p>
+      <p class="dev-credit">Design and Develop by: <span>danpastolero</span></p>
+    </footer>
+  </div>
+
+  <!-- ===================== CHECKOUT MODAL ===================== -->
+  <div class="stock-modal" id="checkoutModal" role="dialog" aria-modal="true">
+    <div class="stock-modal-overlay" id="checkoutModalOverlay"></div>
+    <div class="stock-modal-card" style="max-width:500px;padding:0 0 1.5rem;">
+      <div class="modal-title-row" style="padding:1.25rem 1.5rem 1rem;">
+        <div>
+          <h3 style="margin:0 0 2px;">Checkout</h3>
+          <p id="checkoutSubtitle" style="margin:0;font-size:0.8rem;color:var(--text-muted);">Select quantity and confirm sale</p>
+        </div>
+        <button class="modal-close-icon-btn" id="closeCheckoutBtn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <!-- Product Banner -->
+      <div class="checkout-product-banner">
+        <div class="checkout-product-icon"><i class="fa-solid fa-box"></i></div>
+        <div class="checkout-product-details">
+          <h4 id="coProductName">—</h4>
+          <div class="checkout-product-meta">
+            <span class="co-price-pill" id="coUnitPrice">₱0.00/unit</span>
+            <span class="co-stock-badge" id="coStockAvail">0 units available</span>
+          </div>
+          <span class="batch-tag" id="coBatchTag">—</span>
+        </div>
+      </div>
+      <!-- Form Body -->
+      <div class="checkout-form-body">
+        <div class="form-field">
+          <label>Quantity</label>
+          <div class="qty-stepper-wrap">
+            <button type="button" class="stepper-btn" id="coQtyMinus"><i class="fa-solid fa-minus"></i></button>
+            <input type="number" id="coQtyInput" min="1" value="1">
+            <button type="button" class="stepper-btn" id="coQtyPlus"><i class="fa-solid fa-plus"></i></button>
+          </div>
+        </div>
+        <!-- Payment Method: Cash or Credit -->
+        <div class="form-field">
+          <label>Payment Method</label>
+          <div class="payment-method-toggle">
+            <button type="button" class="btn-pay-mode active" id="payModeCash">
+              <i class="fa-solid fa-money-bill-wave"></i> Cash
+            </button>
+            <button type="button" class="btn-pay-mode" id="payModeCredit">
+              <i class="fa-solid fa-credit-card"></i> Credit
+            </button>
+          </div>
+        </div>
+        <!-- Cash Section: Discount -->
+        <div class="form-field" id="cashSection">
+          <label for="coDiscountInput">Discount (₱)</label>
+          <div class="input-action-group">
+            <div class="form-input-wrapper">
+              <i class="fa-solid fa-tag field-icon"></i>
+              <input type="number" id="coDiscountInput" min="0" step="0.01" placeholder="Enter discount amount (₱)">
+            </div>
+            <button type="button" class="btn-addon-action" id="btnApplyDiscount">
+              <i class="fa-solid fa-percent"></i> Add Discount
+            </button>
+          </div>
+        </div>
+        <!-- Credit Section: Charge -->
+        <div class="form-field" id="creditSection" style="display:none;">
+          <label for="coChargeInput">Additional Charge (₱)</label>
+          <div class="input-action-group">
+            <div class="form-input-wrapper">
+              <i class="fa-solid fa-receipt field-icon"></i>
+              <input type="number" id="coChargeInput" min="0" step="0.01" placeholder="Enter charge amount (₱)">
+            </div>
+            <button type="button" class="btn-addon-action" id="btnApplyCharge">
+              <i class="fa-solid fa-plus"></i> Add Charge
+            </button>
+          </div>
+        </div>
+        <!-- Summary Box -->
+        <div class="checkout-summary-box">
+          <div class="co-summary-row"><span>Subtotal</span><span id="coSubtotal">₱0.00</span></div>
+          <div class="co-summary-row discount" id="summaryDiscountRow"><span>Discount</span><span id="coDiscount">-₱0.00</span></div>
+          <div class="co-summary-row charge" id="summaryChargeRow" style="display:none;"><span>Additional Charge</span><span id="coCharge">+₱0.00</span></div>
+          <div class="co-summary-row grand-total"><span>Total</span><span id="coGrandTotal">₱0.00</span></div>
+        </div>
+      </div>
+      <div class="modal-btn-actions" style="padding:0 1.5rem 0;margin-top:1rem;">
+        <button class="btn-modal-cancel" id="cancelCheckoutBtn">Cancel</button>
+        <button class="btn-modal-submit" id="confirmCheckoutBtn">
+          <i class="fa-solid fa-check"></i> Submit Checkout
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast-notice" id="toastNotice" style="display:none;">
+    <i class="fa-solid fa-circle-check" id="toastIcon"></i>
+    <span id="toastMsg">Done!</span>
+  </div>
+
+  <script type="module" src="settings.js"></script>
+</body>
+</html>

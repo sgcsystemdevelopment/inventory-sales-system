@@ -1,15 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inventory &amp; Stock Management - Simpal System</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="stylesheet" href="inventory.css">
 </head>
+
 <body>
 
   <!-- ===================== SIDEBAR ===================== -->
@@ -31,10 +34,7 @@
         <i class="fa-solid fa-boxes-stacked"></i>
         <span>Inventory</span>
       </a>
-      <a href="#" class="nav-item">
-        <i class="fa-solid fa-file-invoice-dollar"></i>
-        <span>Sales Reports</span>
-      </a>
+      <a href="transactions.html" class="nav-item"><i class="fa-solid fa-file-invoice-dollar"></i><span>Sales Reports</span></a>
 
       <!-- Stocks Group -->
       <div class="nav-label">Stocks</div>
@@ -47,20 +47,11 @@
         <i class="fa-solid fa-money-bill-wave"></i>
         <span>Expenses</span>
       </a>
-      <a href="#" class="nav-item">
-        <i class="fa-solid fa-receipt"></i>
-        <span>Transactions</span>
-      </a>
+      <a href="transactions.html" class="nav-item"><i class="fa-solid fa-receipt"></i><span>Transactions</span></a>
 
       <div class="nav-label">System</div>
-      <a href="#" class="nav-item">
-        <i class="fa-solid fa-users"></i>
-        <span>User Management</span>
-      </a>
-      <a href="#" class="nav-item">
-        <i class="fa-solid fa-gear"></i>
-        <span>Settings</span>
-      </a>
+      <a href="users.html" class="nav-item"><i class="fa-solid fa-users"></i><span>User Management</span></a>
+      <a href="settings.html" class="nav-item"><i class="fa-solid fa-gear"></i><span>Settings</span></a>
     </nav>
 
     <div class="sidebar-footer">
@@ -90,12 +81,6 @@
       </div>
 
       <div class="topnav-right">
-        <!-- Main Quick Action Button -->
-        <button class="btn-primary-header" id="topInputStockBtn">
-          <i class="fa-solid fa-plus"></i>
-          <span>Input Stock</span>
-        </button>
-
         <!-- Theme Toggle -->
         <button id="themeToggleBtn" class="icon-btn" title="Toggle Theme" aria-label="Toggle theme">
           <i class="fa-regular fa-moon" id="themeIcon"></i>
@@ -244,7 +229,7 @@
   <div class="stock-modal" id="stockModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="stock-modal-overlay" id="modalOverlay"></div>
     <div class="stock-modal-card">
-      
+
       <div class="modal-title-row">
         <div>
           <h3 id="modalTitle">Input New Stock</h3>
@@ -259,7 +244,7 @@
         <input type="hidden" id="editStockId" value="">
 
         <div class="stock-form-grid">
-          
+
           <!-- 1. DATE (TIMESTAMP) -->
           <div class="form-field">
             <label for="stockDate">Date &amp; Time (Timestamp) *</label>
@@ -286,7 +271,8 @@
             <label for="stockName">Product / Item Name *</label>
             <div class="form-input-wrapper">
               <i class="fa-solid fa-box-open field-icon"></i>
-              <input type="text" id="stockName" placeholder="e.g. Thermal Paper Roll 80x70mm, Barcode Scanner, etc." required>
+              <input type="text" id="stockName" placeholder="e.g. Thermal Paper Roll 80x70mm, Barcode Scanner, etc."
+                required>
             </div>
           </div>
 
@@ -366,13 +352,14 @@
   </div>
 
   <!-- ===================== CHECKOUT MODAL ===================== -->
-  <div class="stock-modal" id="checkoutModal" role="dialog" aria-modal="true" style="display:none;">
+  <div class="stock-modal" id="checkoutModal" role="dialog" aria-modal="true">
     <div class="stock-modal-overlay" id="checkoutModalOverlay"></div>
     <div class="stock-modal-card" style="max-width:500px;padding:0 0 1.5rem;">
       <div class="modal-title-row" style="padding:1.25rem 1.5rem 1rem;">
         <div>
           <h3 style="margin:0 0 2px;">Checkout</h3>
-          <p id="checkoutSubtitle" style="margin:0;font-size:0.8rem;color:var(--text-muted);">Select quantity and confirm sale</p>
+          <p id="checkoutSubtitle" style="margin:0;font-size:0.8rem;color:var(--text-muted);">Select quantity and
+            confirm sale</p>
         </div>
         <button class="modal-close-icon-btn" id="closeCheckoutBtn"><i class="fa-solid fa-xmark"></i></button>
       </div>
@@ -418,7 +405,7 @@
           <div class="input-action-group">
             <div class="form-input-wrapper">
               <i class="fa-solid fa-tag field-icon"></i>
-              <input type="number" id="coDiscountInput" min="0" step="0.01" value="0" placeholder="Enter discount amount (₱)">
+              <input type="number" id="coDiscountInput" min="0" step="0.01" placeholder="Enter discount amount (₱)">
             </div>
             <button type="button" class="btn-addon-action" id="btnApplyDiscount">
               <i class="fa-solid fa-percent"></i> Add Discount
@@ -432,7 +419,7 @@
           <div class="input-action-group">
             <div class="form-input-wrapper">
               <i class="fa-solid fa-receipt field-icon"></i>
-              <input type="number" id="coChargeInput" min="0" step="0.01" value="0" placeholder="Enter charge amount (₱)">
+              <input type="number" id="coChargeInput" min="0" step="0.01" placeholder="Enter charge amount (₱)">
             </div>
             <button type="button" class="btn-addon-action" id="btnApplyCharge">
               <i class="fa-solid fa-plus"></i> Add Charge
@@ -443,8 +430,10 @@
         <!-- Summary Box -->
         <div class="checkout-summary-box">
           <div class="co-summary-row"><span>Subtotal</span><span id="coSubtotal">₱0.00</span></div>
-          <div class="co-summary-row discount" id="summaryDiscountRow"><span>Discount</span><span id="coDiscount">-₱0.00</span></div>
-          <div class="co-summary-row charge" id="summaryChargeRow" style="display: none;"><span>Additional Charge</span><span id="coCharge">+₱0.00</span></div>
+          <div class="co-summary-row discount" id="summaryDiscountRow"><span>Discount</span><span
+              id="coDiscount">-₱0.00</span></div>
+          <div class="co-summary-row charge" id="summaryChargeRow" style="display: none;"><span>Additional
+              Charge</span><span id="coCharge">+₱0.00</span></div>
           <div class="co-summary-row grand-total"><span>Total</span><span id="coGrandTotal">₱0.00</span></div>
         </div>
       </div>
@@ -465,4 +454,5 @@
 
   <script type="module" src="inventory.js"></script>
 </body>
+
 </html>

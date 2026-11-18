@@ -1,0 +1,53 @@
+@import './dashboard.css';
+
+.users-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.user-stat-card {
+  background: var(--bg-card);
+  border-radius: var(--border-radius);
+  padding: 1.25rem 1.5rem;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.user-stat-icon {
+  width: 48px; height: 48px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.25rem; flex-shrink: 0;
+}
+.user-stat-card.total .user-stat-icon    { background: rgba(37,99,235,0.12);  color: #2563eb; }
+.user-stat-card.active .user-stat-icon   { background: rgba(16,185,129,0.12); color: #10b981; }
+.user-stat-card.admins .user-stat-icon   { background: rgba(239,68,68,0.12);  color: #ef4444; }
+.user-stat-card.lastlog .user-stat-icon  { background: rgba(245,158,11,0.12); color: #f59e0b; }
+.user-stat-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+.user-stat-val   { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); margin-top: 2px; }
+.user-stat-sub   { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+
+/* Role badges */
+.role-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 20px;
+  font-size: 0.72rem; font-weight: 700;
+}
+.role-badge.admin    { background: rgba(239,68,68,0.12);  color: #ef4444; }
+.role-badge.manager  { background: rgba(37,99,235,0.12);  color: #2563eb; }
+.role-badge.cashier  { background: rgba(16,185,129,0.12); color: #10b981; }
+
+/* Status badges */
+.status-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 20px;
+  font-size: 0.72rem; font-weight: 700;
+}
+.status-badge.active   { background: rgba(16,185,129,0.12); color: #10b981; }
+.status-badge.inactive { background: rgba(100,116,139,0.12); color: #64748b; }
+
+@media (max-width: 1024px) { .users-summary-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px)  { .users-summary-grid { grid-template-columns: 1fr; } }
