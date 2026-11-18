@@ -9,52 +9,52 @@ import { renderGlobalSidebarStocks, setupCheckoutModalEvents } from './checkoutM
 
 const initUsers = async () => {
   // Elements
-  const themeToggleBtn    = document.getElementById('themeToggleBtn');
-  const themeIcon         = document.getElementById('themeIcon');
-  const sidebarEl         = document.getElementById('sidebar');
-  const menuBtn           = document.getElementById('menuBtn');
-  const sidebarCloseBtn   = document.getElementById('sidebarCloseBtn');
-  const sidebarOverlay    = document.getElementById('sidebarOverlay');
-  const sidebarLogo       = document.getElementById('sidebarLogo');
-  const userAvatar        = document.getElementById('userAvatar');
+  const themeToggleBtn = document.getElementById('themeToggleBtn');
+  const themeIcon = document.getElementById('themeIcon');
+  const sidebarEl = document.getElementById('sidebar');
+  const menuBtn = document.getElementById('menuBtn');
+  const sidebarCloseBtn = document.getElementById('sidebarCloseBtn');
+  const sidebarOverlay = document.getElementById('sidebarOverlay');
+  const sidebarLogo = document.getElementById('sidebarLogo');
+  const userAvatar = document.getElementById('userAvatar');
 
-  const statTotalUsers    = document.getElementById('statTotalUsers');
-  const statActiveUsers   = document.getElementById('statActiveUsers');
-  const statAdmins        = document.getElementById('statAdmins');
-  const statLastLogin     = document.getElementById('statLastLogin');
+  const statTotalUsers = document.getElementById('statTotalUsers');
+  const statActiveUsers = document.getElementById('statActiveUsers');
+  const statAdmins = document.getElementById('statAdmins');
+  const statLastLogin = document.getElementById('statLastLogin');
 
-  const usersTableBody    = document.getElementById('usersTableBody');
-  const usersTableInfo    = document.getElementById('usersTableInfo');
-  const usersPageNum      = document.getElementById('usersPageNum');
-  const prevUsersPage     = document.getElementById('prevUsersPage');
-  const nextUsersPage     = document.getElementById('nextUsersPage');
-  const userSearch        = document.getElementById('userSearch');
-  const addUserBtn        = document.getElementById('addUserBtn');
+  const usersTableBody = document.getElementById('usersTableBody');
+  const usersTableInfo = document.getElementById('usersTableInfo');
+  const usersPageNum = document.getElementById('usersPageNum');
+  const prevUsersPage = document.getElementById('prevUsersPage');
+  const nextUsersPage = document.getElementById('nextUsersPage');
+  const userSearch = document.getElementById('userSearch');
+  const addUserBtn = document.getElementById('addUserBtn');
 
-  const userModal         = document.getElementById('userModal');
-  const userModalOverlay  = document.getElementById('userModalOverlay');
+  const userModal = document.getElementById('userModal');
+  const userModalOverlay = document.getElementById('userModalOverlay');
   const closeUserModalBtn = document.getElementById('closeUserModalBtn');
-  const cancelUserBtn     = document.getElementById('cancelUserBtn');
-  const userForm          = document.getElementById('userForm');
-  const userModalTitle    = document.getElementById('userModalTitle');
+  const cancelUserBtn = document.getElementById('cancelUserBtn');
+  const userForm = document.getElementById('userForm');
+  const userModalTitle = document.getElementById('userModalTitle');
   const userModalSubtitle = document.getElementById('userModalSubtitle');
-  const userSaveBtnText   = document.getElementById('userSaveBtnText');
-  const editUserId        = document.getElementById('editUserId');
-  const userUsername      = document.getElementById('userUsername');
-  const userFullName      = document.getElementById('userFullName');
-  const userRole          = document.getElementById('userRole');
-  const userIsActive      = document.getElementById('userIsActive');
+  const userSaveBtnText = document.getElementById('userSaveBtnText');
+  const editUserId = document.getElementById('editUserId');
+  const userUsername = document.getElementById('userUsername');
+  const userFullName = document.getElementById('userFullName');
+  const userRole = document.getElementById('userRole');
+  const userIsActive = document.getElementById('userIsActive');
 
-  const pwResetModal      = document.getElementById('pwResetModal');
-  const pwResetOverlay    = document.getElementById('pwResetOverlay');
-  const closePwResetBtn   = document.getElementById('closePwResetBtn');
-  const cancelPwResetBtn  = document.getElementById('cancelPwResetBtn');
+  const pwResetModal = document.getElementById('pwResetModal');
+  const pwResetOverlay = document.getElementById('pwResetOverlay');
+  const closePwResetBtn = document.getElementById('closePwResetBtn');
+  const cancelPwResetBtn = document.getElementById('cancelPwResetBtn');
   const confirmPwResetBtn = document.getElementById('confirmPwResetBtn');
-  const pwResetSubtitle   = document.getElementById('pwResetSubtitle');
+  const pwResetSubtitle = document.getElementById('pwResetSubtitle');
 
-  const toastNotice       = document.getElementById('toastNotice');
-  const toastIcon         = document.getElementById('toastIcon');
-  const toastMsg          = document.getElementById('toastMsg');
+  const toastNotice = document.getElementById('toastNotice');
+  const toastIcon = document.getElementById('toastIcon');
+  const toastMsg = document.getElementById('toastMsg');
 
   // Theme
   const initTheme = () => {
@@ -88,7 +88,7 @@ const initUsers = async () => {
     document.body.style.overflow = 'hidden';
   });
   if (sidebarCloseBtn) sidebarCloseBtn.addEventListener('click', closeSidebar);
-  if (sidebarOverlay)  sidebarOverlay.addEventListener('click', closeSidebar);
+  if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
 
   // User session
   const sessionData = sessionStorage.getItem('inv_current_user');
@@ -96,7 +96,7 @@ const initUsers = async () => {
     try {
       const user = JSON.parse(sessionData);
       if (user.username) userAvatar.title = `${user.username} (${user.roleName || user.role})`;
-    } catch (e) {}
+    } catch (e) { }
   }
   const logoutBtn = document.getElementById('logoutBtn');
   if (logoutBtn) {
@@ -134,11 +134,6 @@ const initUsers = async () => {
 
   // State
   let usersList = [];
-  const defaultUsers = [
-    { id: 'usr_admin', username: 'admin', full_name: 'System Administrator', role: 'admin', is_active: true, last_login_at: new Date().toISOString() },
-    { id: 'usr_mgr',   username: 'manager', full_name: 'Operations Manager', role: 'manager', is_active: true, last_login_at: new Date(Date.now() - 86400000).toISOString() },
-    { id: 'usr_cash',  username: 'cashier1', full_name: 'Cashier Staff', role: 'cashier', is_active: true, last_login_at: new Date(Date.now() - 172800000).toISOString() }
-  ];
 
   async function loadUsers() {
     try {
@@ -151,12 +146,12 @@ const initUsers = async () => {
         usersList = data;
       } else {
         const local = localStorage.getItem('inv_users_data');
-        usersList = local ? JSON.parse(local) : defaultUsers;
+        usersList = local ? JSON.parse(local) : [];
       }
     } catch (e) {
       console.warn('Profiles fetch error, using local fallback:', e);
       const local = localStorage.getItem('inv_users_data');
-      usersList = local ? JSON.parse(local) : defaultUsers;
+      usersList = local ? JSON.parse(local) : [];
     }
     updateSummaryCards();
     renderTable();
@@ -172,17 +167,17 @@ const initUsers = async () => {
     const total = usersList.length;
     const active = usersList.filter(u => u.is_active).length;
     const admins = usersList.filter(u => u.role === 'admin' && u.is_active).length;
-    
+
     let lastLogin = '—';
     const logins = usersList.map(u => u.last_login_at).filter(Boolean).sort().reverse();
     if (logins.length > 0) {
       lastLogin = formatDate(logins[0]);
     }
 
-    if (statTotalUsers)  statTotalUsers.textContent = total;
+    if (statTotalUsers) statTotalUsers.textContent = total;
     if (statActiveUsers) statActiveUsers.textContent = active;
-    if (statAdmins)      statAdmins.textContent = admins;
-    if (statLastLogin)   statLastLogin.textContent = lastLogin;
+    if (statAdmins) statAdmins.textContent = admins;
+    if (statLastLogin) statLastLogin.textContent = lastLogin;
   }
 
   // Pagination & Filtering
@@ -192,7 +187,7 @@ const initUsers = async () => {
   function getFilteredUsers() {
     const q = (userSearch ? userSearch.value : '').trim().toLowerCase();
     if (!q) return usersList;
-    return usersList.filter(u => 
+    return usersList.filter(u =>
       (u.username || '').toLowerCase().includes(q) ||
       (u.full_name || '').toLowerCase().includes(q) ||
       (u.role || '').toLowerCase().includes(q)
@@ -266,7 +261,7 @@ const initUsers = async () => {
 
   if (prevUsersPage) prevUsersPage.addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderTable(); } });
   if (nextUsersPage) nextUsersPage.addEventListener('click', () => { currentPage++; renderTable(); });
-  if (userSearch)    userSearch.addEventListener('input', () => { currentPage = 1; renderTable(); });
+  if (userSearch) userSearch.addEventListener('input', () => { currentPage = 1; renderTable(); });
 
   // Modal handlers
   function openUserModal(user = null) {
@@ -295,10 +290,10 @@ const initUsers = async () => {
     userModal.classList.remove('active');
   }
 
-  if (addUserBtn)        addUserBtn.addEventListener('click', () => openUserModal());
+  if (addUserBtn) addUserBtn.addEventListener('click', () => openUserModal());
   if (closeUserModalBtn) closeUserModalBtn.addEventListener('click', closeUserModal);
-  if (cancelUserBtn)     cancelUserBtn.addEventListener('click', closeUserModal);
-  if (userModalOverlay)  userModalOverlay.addEventListener('click', closeUserModal);
+  if (cancelUserBtn) cancelUserBtn.addEventListener('click', closeUserModal);
+  if (userModalOverlay) userModalOverlay.addEventListener('click', closeUserModal);
 
   // User Form Submit
   userForm.addEventListener('submit', async (e) => {
@@ -413,9 +408,9 @@ const initUsers = async () => {
     targetResetUser = null;
   };
 
-  if (closePwResetBtn)   closePwResetBtn.addEventListener('click', closePwReset);
-  if (cancelPwResetBtn)  cancelPwResetBtn.addEventListener('click', closePwReset);
-  if (pwResetOverlay)    pwResetOverlay.addEventListener('click', closePwReset);
+  if (closePwResetBtn) closePwResetBtn.addEventListener('click', closePwReset);
+  if (cancelPwResetBtn) cancelPwResetBtn.addEventListener('click', closePwReset);
+  if (pwResetOverlay) pwResetOverlay.addEventListener('click', closePwReset);
 
   if (confirmPwResetBtn) {
     confirmPwResetBtn.addEventListener('click', async () => {

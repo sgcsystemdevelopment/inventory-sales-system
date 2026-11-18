@@ -603,38 +603,31 @@ const initDashboard = async () => {
       };
     }
 
-    // Local fallback
+    // Local fallback — show real local data only, no fake numbers
     let localTxns = [];
     try { localTxns = JSON.parse(localStorage.getItem('inv_transactions') || '[]'); } catch (e) {}
 
-    const scale = { today: 1, week: 6.5, month: 28, quarter: 85, year: 320 }[period] || 6.5;
-    const baseMock = {
-      paid:     Math.round(48500 * scale),
-      unpaid:   Math.round(12300 * scale),
-      expense:  Math.round(9800  * scale),
-      discount: Math.round(3200  * scale),
-      cash:     Math.round(31000 * scale),
+    const emptyData = {
+      paid: 0,
+      unpaid: 0,
+      expense: 0,
+      discount: 0,
+      cash: 0,
       chartLabels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-      chartPaid:    [8200, 7500, 9800, 6300, 11200, 5600, 9800],
-      chartUnpaid:  [1200, 2100, 800,  1900, 600,   2400, 1100],
-      chartExpense: [1500, 1200, 1800, 900,  2200,  1100, 1700],
-      transactions: [
-        { type:'sale',    ref: 'INV-00234', description: 'Counter Sale',          date: '2026-11-16', amount: 15800, discount: 500,  status: 'paid' },
-        { type:'sale',    ref: 'INV-00233', description: 'Counter Sale',          date: '2026-11-16', amount: 8200,  discount: 0,    status: 'unpaid' },
-        { type:'sale',    ref: 'INV-00232', description: 'Counter Sale',          date: '2026-11-15', amount: 24500, discount: 1200, status: 'paid' },
-        { type:'expense', ref: 'EXP-00001', description: 'Electric Bill - Nov',   date: '2026-11-15', amount: 5300,  discount: 0,    status: 'recorded' },
-        { type:'expense', ref: 'EXP-00002', description: 'Office Supplies',       date: '2026-11-14', amount: 1800,  discount: 0,    status: 'recorded' },
-      ]
+      chartPaid:    [0, 0, 0, 0, 0, 0, 0],
+      chartUnpaid:  [0, 0, 0, 0, 0, 0, 0],
+      chartExpense: [0, 0, 0, 0, 0, 0, 0],
+      transactions: []
     };
 
     if (localTxns.length > 0) {
       const extraPaid = localTxns.filter(t => t.paymentStatus !== 'unpaid').reduce((sum, t) => sum + (Number(t.total) || 0), 0);
       const extraUnpaid = localTxns.filter(t => t.paymentStatus === 'unpaid').reduce((sum, t) => sum + (Number(t.total) || 0), 0);
       const extraDisc = localTxns.reduce((sum, t) => sum + (Number(t.discount) || 0), 0);
-      baseMock.paid += extraPaid;
-      baseMock.unpaid += extraUnpaid;
-      baseMock.cash += extraPaid;
-      baseMock.discount += extraDisc;
+      emptyData.paid += extraPaid;
+      emptyData.unpaid += extraUnpaid;
+      emptyData.cash += extraPaid;
+      emptyData.discount += extraDisc;
 
       const formattedLocal = localTxns.map(t => ({
         type: 'sale',
@@ -646,10 +639,10 @@ const initDashboard = async () => {
         status: t.paymentStatus || 'paid'
       }));
 
-      baseMock.transactions = [...formattedLocal, ...baseMock.transactions];
+      emptyData.transactions = [...formattedLocal];
     }
 
-    return baseMock;
+    return emptyData;
   };
 
   // ── UPDATE CARDS ──────────────────────────────────────────────────────────
