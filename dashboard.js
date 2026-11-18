@@ -14,49 +14,6 @@ const initDashboard = async () => {
   // ── DATA PERSISTENCE & SUPABASE SYNC (MATCHING INVENTORY) ─────────────────
   const STORAGE_KEY = 'inv_stocks_data';
 
-  const defaultSeedStocks = [
-    {
-      id: 'stk_1',
-      date: '2026-11-17T09:15',
-      batch: 'BATCH-2026-001',
-      name: 'Thermal Paper Roll 80x70mm (Box of 50)',
-      stocks: 85,
-      price: 1850.00
-    },
-    {
-      id: 'stk_2',
-      date: '2026-11-17T08:30',
-      batch: 'BATCH-2026-002',
-      name: 'Wireless 2D Barcode Scanner Handheld',
-      stocks: 18,
-      price: 2450.00
-    },
-    {
-      id: 'stk_3',
-      date: '2026-11-16T14:20',
-      batch: 'BATCH-2026-003',
-      name: 'Heavy Duty Cash Drawer 5-Bill / 8-Coin RJ11',
-      stocks: 7,
-      price: 3200.00
-    },
-    {
-      id: 'stk_4',
-      date: '2026-11-15T11:45',
-      batch: 'BATCH-2026-004',
-      name: 'Direct Thermal Barcode Sticker 100x150mm',
-      stocks: 140,
-      price: 420.00
-    },
-    {
-      id: 'stk_5',
-      date: '2026-11-14T16:10',
-      batch: 'BATCH-2026-005',
-      name: 'POS Touch Monitor 15.6 inch Capacitive',
-      stocks: 0,
-      price: 12500.00
-    }
-  ];
-
   let inMemoryStocks = [];
 
   // ── ELEMENT REFS ─────────────────────────────────────────────────────────
@@ -137,17 +94,12 @@ const initDashboard = async () => {
 
   function getLocalStocks() {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultSeedStocks));
-      return defaultSeedStocks;
-    }
+    if (!raw) return [];
     try {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultSeedStocks));
-      return defaultSeedStocks;
+      return Array.isArray(parsed) ? parsed : [];
     } catch (e) {
-      return defaultSeedStocks;
+      return [];
     }
   }
 
