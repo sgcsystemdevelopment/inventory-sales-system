@@ -496,7 +496,7 @@ const initDashboard = async () => {
     });
   }
 
-  // ── FETCH SUPABASE DASHBOARD DATA (WITH SEED/MOCK FALLBACK) ───────────────
+  // ── FETCH SUPABASE DASHBOARD DATA (AGGREGATED BY ACTUAL TRANSACTION DATES) ───────────────
   const fetchDashboardData = async (period = 'week') => {
     let txns = [];
     let expenses = [];
@@ -526,123 +526,293 @@ const initDashboard = async () => {
       console.warn('Expenses fetch fallback:', e);
     }
 
-    if (txns.length > 0) {
-      let totalPaid = 0;
-      let totalUnpaid = 0;
-      let totalDiscount = 0;
-
-      txns.forEach(t => {
-        const amt = Number(t.total) || 0;
-        const disc = Number(t.discount) || 0;
-        if (t.payment_status === 'paid') totalPaid += amt;
-        else if (t.payment_status === 'unpaid') totalUnpaid += amt;
-        else totalPaid += amt;
-        totalDiscount += disc;
-      });
-
-      const totalExpense = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-      const cashOnHand = totalPaid - totalExpense;
-
-      const mappedTxns = txns.map(t => ({
-        type: 'sale',
-        ref: t.reference_no || `TXN-${String(t.id).slice(0, 6)}`,
-        description: t.notes || 'Counter Sale',
-        date: t.created_at ? t.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10),
-        amount: Number(t.total) || 0,
-        discount: Number(t.discount) || 0,
-        status: t.payment_status || 'paid'
-      }));
-
-      const mappedExpenses = expenses.map(e => ({
-        type: 'expense',
-        ref: `EXP-${String(e.id).slice(0, 6)}`,
-        description: e.title || e.category || 'Expense',
-        date: e.expense_date || (e.created_at ? e.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10)),
-        amount: Number(e.amount) || 0,
-        discount: 0,
-        status: 'recorded'
-      }));
-
-      const allMapped = [...mappedTxns, ...mappedExpenses].sort((a, b) => b.date.localeCompare(a.date));
-
-      return {
-        paid: totalPaid,
-        unpaid: totalUnpaid,
-        expense: totalExpense,
-        discount: totalDiscount,
-        cash: cashOnHand,
-        chartLabels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-        chartPaid: [
-          Math.round(totalPaid * 0.12),
-          Math.round(totalPaid * 0.15),
-          Math.round(totalPaid * 0.18),
-          Math.round(totalPaid * 0.10),
-          Math.round(totalPaid * 0.22),
-          Math.round(totalPaid * 0.08),
-          Math.round(totalPaid * 0.15)
-        ],
-        chartUnpaid: [
-          Math.round(totalUnpaid * 0.15),
-          Math.round(totalUnpaid * 0.20),
-          Math.round(totalUnpaid * 0.10),
-          Math.round(totalUnpaid * 0.25),
-          Math.round(totalUnpaid * 0.10),
-          Math.round(totalUnpaid * 0.10),
-          Math.round(totalUnpaid * 0.10)
-        ],
-        chartExpense: [
-          Math.round(totalExpense * 0.14),
-          Math.round(totalExpense * 0.14),
-          Math.round(totalExpense * 0.14),
-          Math.round(totalExpense * 0.14),
-          Math.round(totalExpense * 0.16),
-          Math.round(totalExpense * 0.14),
-          Math.round(totalExpense * 0.14)
-        ],
-        transactions: allMapped
-      };
+    // Also merge any local offline transactions / expenses if Supabase has none
+    if (txns.length === 0) {
+      try {
+        const local = JSON.parse(localStorage.getItem('inv_transactions') || '[]');
+        if (Array.isArray(local) && local.length > 0) {
+          txns = local.map(t => ({
+            id: t.id,
+            reference_no: `TXN-${String(t.id).slice(-6)}`,
+            total: t.total,
+            discount: t.discount || 0,
+            payment_status: t.paymentStatus || 'paid',
+            notes: t.notes || (t.productName ? `${t.productName} (x${t.qty})` : 'Sale'),
+            created_at: t.date || new Date().toISOString()
+          }));
+        }
+      } catch (e) {}
     }
 
-    // Local fallback — show real local data only, no fake numbers
-    let localTxns = [];
-    try { localTxns = JSON.parse(localStorage.getItem('inv_transactions') || '[]'); } catch (e) {}
+    if (expenses.length === 0) {
+      try {
+        const localExp = JSON.parse(localStorage.getItem('inv_expenses_data') || '[]');
+        if (Array.isArray(localExp) && localExp.length > 0) {
+          expenses = localExp;
+        }
+      } catch (e) {}
+    }
 
-    const emptyData = {
-      paid: 0,
-      unpaid: 0,
-      expense: 0,
-      discount: 0,
-      cash: 0,
-      chartLabels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-      chartPaid:    [0, 0, 0, 0, 0, 0, 0],
-      chartUnpaid:  [0, 0, 0, 0, 0, 0, 0],
-      chartExpense: [0, 0, 0, 0, 0, 0, 0],
-      transactions: []
+    // ── DATE RANGE FILTERING ────────────────────────────────────────────────
+    const now = new Date();
+    const getStartDate = () => {
+      const d = new Date(now);
+      if (period === 'today') {
+        d.setHours(0, 0, 0, 0);
+        return d;
+      } else if (period === 'week') {
+        // Start of current week (Monday)
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        d.setDate(diff);
+        d.setHours(0, 0, 0, 0);
+        return d;
+      } else if (period === 'month') {
+        d.setDate(1);
+        d.setHours(0, 0, 0, 0);
+        return d;
+      } else if (period === 'quarter') {
+        const currentQuarter = Math.floor(d.getMonth() / 3);
+        d.setMonth(currentQuarter * 3, 1);
+        d.setHours(0, 0, 0, 0);
+        return d;
+      } else if (period === 'year') {
+        d.setMonth(0, 1);
+        d.setHours(0, 0, 0, 0);
+        return d;
+      }
+      return new Date(0);
     };
 
-    if (localTxns.length > 0) {
-      const extraPaid = localTxns.filter(t => t.paymentStatus !== 'unpaid').reduce((sum, t) => sum + (Number(t.total) || 0), 0);
-      const extraUnpaid = localTxns.filter(t => t.paymentStatus === 'unpaid').reduce((sum, t) => sum + (Number(t.total) || 0), 0);
-      const extraDisc = localTxns.reduce((sum, t) => sum + (Number(t.discount) || 0), 0);
-      emptyData.paid += extraPaid;
-      emptyData.unpaid += extraUnpaid;
-      emptyData.cash += extraPaid;
-      emptyData.discount += extraDisc;
+    const startDate = getStartDate();
 
-      const formattedLocal = localTxns.map(t => ({
-        type: 'sale',
-        ref: `TXN-${String(t.id).slice(-5)}`,
-        description: `${t.productName} (x${t.qty})`,
-        date: t.date ? t.date.slice(0, 10) : new Date().toISOString().slice(0, 10),
-        amount: Number(t.total) || 0,
-        discount: Number(t.discount) || 0,
-        status: t.paymentStatus || 'paid'
-      }));
+    const getItemDate = (item, dateField) => {
+      const val = item[dateField] || item.created_at;
+      if (!val) return null;
+      const d = new Date(val);
+      return isNaN(d.getTime()) ? null : d;
+    };
 
-      emptyData.transactions = [...formattedLocal];
+    const filteredTxns = txns.filter(t => {
+      const d = getItemDate(t, 'created_at');
+      return d ? d >= startDate : true;
+    });
+
+    const filteredExpenses = expenses.filter(e => {
+      const d = getItemDate(e, 'expense_date');
+      return d ? d >= startDate : true;
+    });
+
+    // ── SUMMARY TOTALS ──────────────────────────────────────────────────────
+    let totalPaid = 0;
+    let totalUnpaid = 0;
+    let totalDiscount = 0;
+
+    filteredTxns.forEach(t => {
+      const disc = Number(t.discount) || 0;
+      const amt = t.total !== undefined && t.total !== null && !isNaN(Number(t.total))
+        ? Number(t.total)
+        : Math.max(0, (Number(t.subtotal) || 0) + (Number(t.charge) || 0) - disc);
+
+      if (t.payment_status === 'paid') totalPaid += amt;
+      else if (t.payment_status === 'unpaid') totalUnpaid += amt;
+      else totalPaid += amt;
+      totalDiscount += disc;
+    });
+
+    // Gross Sales includes overall checkouts: Paid + Unpaid + Total Discounts
+    const grossSales = totalPaid + totalUnpaid + totalDiscount;
+
+    const totalExpense = filteredExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    const cashOnHand = totalPaid - totalExpense;
+
+    // ── MAP TO TABLE TRANSACTIONS ───────────────────────────────────────────
+    const mappedTxns = filteredTxns.map(t => ({
+      type: 'sale',
+      ref: t.reference_no || `TXN-${String(t.id).slice(0, 6)}`,
+      description: t.notes || 'Counter Sale',
+      date: t.created_at ? t.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10),
+      amount: Number(t.total) || 0,
+      discount: Number(t.discount) || 0,
+      status: t.payment_status || 'paid'
+    }));
+
+    const mappedExpenses = filteredExpenses.map(e => ({
+      type: 'expense',
+      ref: `EXP-${String(e.id).slice(0, 6)}`,
+      description: e.title || e.category || 'Expense',
+      date: e.expense_date || (e.created_at ? e.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10)),
+      amount: Number(e.amount) || 0,
+      discount: 0,
+      status: 'recorded'
+    }));
+
+    const allMapped = [...mappedTxns, ...mappedExpenses].sort((a, b) => b.date.localeCompare(a.date));
+
+    // ── GENERATE ACTUAL DATE BUCKETS FOR SALES OVERVIEW BAR CHART ────────────
+    let chartLabels = [];
+    let chartPaid = [];
+    let chartUnpaid = [];
+    let chartExpense = [];
+
+    const padZero = (n) => String(n).padStart(2, '0');
+    const toYMD = (d) => `${d.getFullYear()}-${padZero(d.getMonth() + 1)}-${padZero(d.getDate())}`;
+
+    if (period === 'today') {
+      // 6 time buckets throughout the day (4h intervals)
+      const hours = ['12 AM', '4 AM', '8 AM', '12 PM', '4 PM', '8 PM'];
+      chartLabels = hours;
+      chartPaid = new Array(6).fill(0);
+      chartUnpaid = new Array(6).fill(0);
+      chartExpense = new Array(6).fill(0);
+
+      const todayStr = toYMD(now);
+      filteredTxns.forEach(t => {
+        const d = getItemDate(t, 'created_at');
+        if (!d || toYMD(d) !== todayStr) return;
+        const bucket = Math.min(5, Math.floor(d.getHours() / 4));
+        const amt = Number(t.total) || 0;
+        if (t.payment_status === 'unpaid') chartUnpaid[bucket] += amt;
+        else chartPaid[bucket] += amt;
+      });
+
+      filteredExpenses.forEach(e => {
+        const d = getItemDate(e, 'expense_date');
+        if (!d || toYMD(d) !== todayStr) return;
+        const bucket = Math.min(5, Math.floor(d.getHours() / 4));
+        chartExpense[bucket] += Number(e.amount) || 0;
+      });
+
+    } else if (period === 'week') {
+      // Monday through Sunday of the current week
+      const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const weekDates = [];
+      const monday = new Date(startDate);
+
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        const ymd = toYMD(d);
+        weekDates.push(ymd);
+        chartLabels.push(dayNames[i]);
+      }
+
+      chartPaid = new Array(7).fill(0);
+      chartUnpaid = new Array(7).fill(0);
+      chartExpense = new Array(7).fill(0);
+
+      filteredTxns.forEach(t => {
+        const d = getItemDate(t, 'created_at');
+        if (!d) return;
+        const ymd = toYMD(d);
+        const idx = weekDates.indexOf(ymd);
+        if (idx !== -1) {
+          const amt = Number(t.total) || 0;
+          if (t.payment_status === 'unpaid') chartUnpaid[idx] += amt;
+          else chartPaid[idx] += amt;
+        }
+      });
+
+      filteredExpenses.forEach(e => {
+        const d = getItemDate(e, 'expense_date');
+        if (!d) return;
+        const ymd = toYMD(d);
+        const idx = weekDates.indexOf(ymd);
+        if (idx !== -1) {
+          chartExpense[idx] += Number(e.amount) || 0;
+        }
+      });
+
+    } else if (period === 'month') {
+      // 4 Weekly buckets for the current month
+      chartLabels = ['Week 1', 'Week 2', 'Week 3', 'Week 4+'];
+      chartPaid = [0, 0, 0, 0];
+      chartUnpaid = [0, 0, 0, 0];
+      chartExpense = [0, 0, 0, 0];
+
+      filteredTxns.forEach(t => {
+        const d = getItemDate(t, 'created_at');
+        if (!d) return;
+        const weekBucket = Math.min(3, Math.floor((d.getDate() - 1) / 7));
+        const amt = Number(t.total) || 0;
+        if (t.payment_status === 'unpaid') chartUnpaid[weekBucket] += amt;
+        else chartPaid[weekBucket] += amt;
+      });
+
+      filteredExpenses.forEach(e => {
+        const d = getItemDate(e, 'expense_date');
+        if (!d) return;
+        const weekBucket = Math.min(3, Math.floor((d.getDate() - 1) / 7));
+        chartExpense[weekBucket] += Number(e.amount) || 0;
+      });
+
+    } else if (period === 'quarter') {
+      // 3 Months of the current quarter
+      const startMonth = startDate.getMonth();
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      chartLabels = [monthNames[startMonth], monthNames[startMonth + 1], monthNames[startMonth + 2]];
+      chartPaid = [0, 0, 0];
+      chartUnpaid = [0, 0, 0];
+      chartExpense = [0, 0, 0];
+
+      filteredTxns.forEach(t => {
+        const d = getItemDate(t, 'created_at');
+        if (!d) return;
+        const bucket = d.getMonth() - startMonth;
+        if (bucket >= 0 && bucket < 3) {
+          const amt = Number(t.total) || 0;
+          if (t.payment_status === 'unpaid') chartUnpaid[bucket] += amt;
+          else chartPaid[bucket] += amt;
+        }
+      });
+
+      filteredExpenses.forEach(e => {
+        const d = getItemDate(e, 'expense_date');
+        if (!d) return;
+        const bucket = d.getMonth() - startMonth;
+        if (bucket >= 0 && bucket < 3) {
+          chartExpense[bucket] += Number(e.amount) || 0;
+        }
+      });
+
+    } else {
+      // 'year' - 12 Months
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      chartLabels = monthNames;
+      chartPaid = new Array(12).fill(0);
+      chartUnpaid = new Array(12).fill(0);
+      chartExpense = new Array(12).fill(0);
+
+      filteredTxns.forEach(t => {
+        const d = getItemDate(t, 'created_at');
+        if (!d) return;
+        const m = d.getMonth();
+        const amt = Number(t.total) || 0;
+        if (t.payment_status === 'unpaid') chartUnpaid[m] += amt;
+        else chartPaid[m] += amt;
+      });
+
+      filteredExpenses.forEach(e => {
+        const d = getItemDate(e, 'expense_date');
+        if (!d) return;
+        const m = d.getMonth();
+        chartExpense[m] += Number(e.amount) || 0;
+      });
     }
 
-    return emptyData;
+    return {
+      grossSales: grossSales,
+      paid: totalPaid,
+      unpaid: totalUnpaid,
+      expense: totalExpense,
+      discount: totalDiscount,
+      cash: cashOnHand,
+      chartLabels,
+      chartPaid,
+      chartUnpaid,
+      chartExpense,
+      transactions: allMapped
+    };
   };
 
   // ── UPDATE CARDS ──────────────────────────────────────────────────────────
@@ -662,8 +832,8 @@ const initDashboard = async () => {
   };
 
   const updateCards = (data) => {
-    const net = data.paid - data.expense - data.discount;
-    animateCount(els.paid,     data.paid);
+    const net = (data.unpaid || 0) + (data.cash || 0);
+    animateCount(els.paid,     data.grossSales !== undefined ? data.grossSales : data.paid);
     animateCount(els.unpaid,   data.unpaid);
     animateCount(els.expense,  data.expense);
     animateCount(els.discount, data.discount);

@@ -164,12 +164,13 @@
                 <th>Description</th>
                 <th>Date</th>
                 <th style="text-align:right;">Amount</th>
+                <th style="text-align:center;width:95px;">Actions</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody id="txnTableBody">
               <tr class="empty-row">
-                <td colspan="6">
+                <td colspan="7">
                   <div class="empty-state">
                     <i class="fa-solid fa-inbox"></i>
                     <p>Loading transactions...</p>
@@ -196,6 +197,132 @@
       <p>&copy; 2026 Inventory &amp; Sales System &bull; Simpal Group of Companies</p>
       <p class="dev-credit">Design and Develop by: <span>danpastolero</span></p>
     </footer>
+  </div>
+
+  <!-- ===================== EDIT TRANSACTION MODAL ===================== -->
+  <div class="stock-modal" id="editTxnModal" role="dialog" aria-modal="true">
+    <div class="stock-modal-overlay" id="editTxnModalOverlay"></div>
+    <div class="stock-modal-card" style="max-width:540px;">
+      <div class="modal-title-row">
+        <div>
+          <h3 id="editTxnModalTitle">Edit Checkout</h3>
+          <p id="editTxnModalSubtitle">Update checkout details or correct mis-input</p>
+        </div>
+        <button class="modal-close-icon-btn" id="closeEditTxnModalBtn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <form id="editTxnForm">
+        <input type="hidden" id="editTxnId">
+        <input type="hidden" id="editTxnType">
+        <input type="hidden" id="editTxnItemId">
+        <input type="hidden" id="editTxnStockId">
+        <input type="hidden" id="editTxnOldQty">
+
+        <div class="stock-form-grid">
+          <!-- Reference -->
+          <div class="form-field">
+            <label for="editTxnRef">Reference</label>
+            <div class="form-input-wrapper">
+              <i class="fa-solid fa-hashtag field-icon"></i>
+              <input type="text" id="editTxnRef" readonly style="opacity:0.8;cursor:not-allowed;">
+            </div>
+          </div>
+
+          <!-- Date -->
+          <div class="form-field">
+            <label for="editTxnDate">Date *</label>
+            <div class="form-input-wrapper">
+              <i class="fa-solid fa-calendar field-icon"></i>
+              <input type="date" id="editTxnDate" required>
+            </div>
+          </div>
+
+          <!-- Product / Title -->
+          <div class="form-field full-width" id="editTxnProductGroup">
+            <label for="editTxnProductName" id="editTxnProductLabel">Product Name *</label>
+            <div class="form-input-wrapper">
+              <i class="fa-solid fa-box field-icon" id="editTxnProductIcon"></i>
+              <input type="text" id="editTxnProductName" placeholder="Item name" required>
+            </div>
+          </div>
+
+          <!-- Quantity (for sale) -->
+          <div class="form-field" id="editTxnQtyGroup">
+            <label for="editTxnQty">Quantity *</label>
+            <div class="form-input-wrapper">
+              <i class="fa-solid fa-cubes field-icon"></i>
+              <input type="number" id="editTxnQty" min="1" step="1" value="1">
+            </div>
+          </div>
+
+          <!-- Unit Price (for sale) -->
+          <div class="form-field" id="editTxnPriceGroup">
+            <label for="editTxnUnitPrice">Unit Price (₱) *</label>
+            <div class="form-input-wrapper">
+              <i class="fa-solid fa-tag field-icon"></i>
+              <input type="number" id="editTxnUnitPrice" min="0" step="0.01" value="0.00">
+            </div>
+          </div>
+
+          <!-- Discount (for sale) -->
+          <div class="form-field" id="editTxnDiscountGroup">
+            <label for="editTxnDiscount">Discount (₱)</label>
+            <div class="form-input-wrapper">
+              <i class="fa-solid fa-percent field-icon"></i>
+              <input type="number" id="editTxnDiscount" min="0" step="0.01" value="0.00">
+            </div>
+          </div>
+
+          <!-- Total Amount -->
+          <div class="form-field" id="editTxnTotalGroup">
+            <label for="editTxnTotal">Total Amount (₱) *</label>
+            <div class="form-input-wrapper">
+              <i class="fa-solid fa-peso-sign field-icon"></i>
+              <input type="number" id="editTxnTotal" min="0" step="0.01" required>
+            </div>
+          </div>
+
+          <!-- Payment Status -->
+          <div class="form-field">
+            <label for="editTxnStatus">Status</label>
+            <div class="form-input-wrapper">
+              <i class="fa-solid fa-circle-check field-icon"></i>
+              <select id="editTxnStatus">
+                <option value="paid">Paid</option>
+                <option value="unpaid">Unpaid</option>
+                <option value="recorded">Recorded</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Sold to / Customer (for sale) -->
+          <div class="form-field" id="editTxnSoldToGroup">
+            <label for="editTxnCustomer">Sold to / Customer</label>
+            <div class="form-input-wrapper">
+              <i class="fa-solid fa-user field-icon"></i>
+              <input type="text" id="editTxnCustomer" placeholder="Customer name">
+            </div>
+          </div>
+
+          <!-- Notes -->
+          <div class="form-field full-width">
+            <label for="editTxnNotes">Notes</label>
+            <div class="form-input-wrapper">
+              <i class="fa-solid fa-align-left field-icon" style="top:0.9rem;"></i>
+              <textarea id="editTxnNotes" rows="2" placeholder="Optional notes or remarks..." style="width:100%;padding:0.72rem 0.95rem 0.72rem 2.6rem;background:var(--bg-body);border:1px solid var(--border-color);border-radius:10px;font-family:inherit;font-size:0.9rem;color:var(--text-primary);outline:none;resize:vertical;"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-btn-actions">
+          <button type="button" class="btn-modal-cancel" id="cancelEditTxnBtn">Cancel</button>
+          <button type="submit" class="btn-modal-submit" id="saveEditTxnBtn">
+            <i class="fa-solid fa-check"></i>
+            <span id="saveEditTxnBtnText">Save Changes</span>
+          </button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <!-- TRANSACTION DETAIL MODAL -->
