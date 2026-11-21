@@ -187,8 +187,11 @@ const initDashboard = async () => {
 
     const chargeRow = document.getElementById('summaryChargeRow');
     const discountRow = document.getElementById('summaryDiscountRow');
+    const partialRow = document.getElementById('summaryPartialRow');
     const chargeValEl = document.getElementById('coCharge');
     const discValEl = document.getElementById('coDiscount');
+    const partialValEl = document.getElementById('coPartial');
+    const totalLabelEl = document.getElementById('coTotalLabel');
     const totalEl = document.getElementById('coGrandTotal');
 
     if (_payMode === 'credit') {
@@ -198,8 +201,22 @@ const initDashboard = async () => {
 
       if (chargeRow) chargeRow.style.display = 'flex';
       if (discountRow) discountRow.style.display = 'none';
+      if (partialRow) partialRow.style.display = 'none';
       if (chargeValEl) chargeValEl.textContent = '+' + currency(chargeAmt);
+      if (totalLabelEl) totalLabelEl.textContent = 'Total (Credit)';
       if (totalEl) totalEl.textContent = currency(total);
+    } else if (_payMode === 'partial') {
+      const partialInp = document.getElementById('coPartialInput');
+      const rawPartial = Math.max(0, parseFloat(partialInp ? partialInp.value : 0) || 0);
+      const partialAmt = Math.min(rawPartial, subtotal);
+      const remainingCredit = Math.max(0, subtotal - partialAmt);
+
+      if (chargeRow) chargeRow.style.display = 'none';
+      if (discountRow) discountRow.style.display = 'none';
+      if (partialRow) partialRow.style.display = 'flex';
+      if (partialValEl) partialValEl.textContent = '-' + currency(partialAmt);
+      if (totalLabelEl) totalLabelEl.textContent = 'Remaining Unpaid';
+      if (totalEl) totalEl.textContent = currency(remainingCredit);
     } else {
       const discInp = document.getElementById('coDiscountInput');
       const discVal = Math.max(0, parseFloat(discInp ? discInp.value : 0) || 0);
@@ -208,7 +225,9 @@ const initDashboard = async () => {
 
       if (chargeRow) chargeRow.style.display = 'none';
       if (discountRow) discountRow.style.display = 'flex';
+      if (partialRow) partialRow.style.display = 'none';
       if (discValEl) discValEl.textContent = '-' + currency(discountAmt);
+      if (totalLabelEl) totalLabelEl.textContent = 'Total';
       if (totalEl) totalEl.textContent = currency(total);
     }
   }
@@ -217,20 +236,19 @@ const initDashboard = async () => {
     _payMode = mode;
     const payModeCash = document.getElementById('payModeCash');
     const payModeCredit = document.getElementById('payModeCredit');
+    const payModePartial = document.getElementById('payModePartial');
     const cashSection = document.getElementById('cashSection');
     const creditSection = document.getElementById('creditSection');
+    const partialSection = document.getElementById('partialSection');
 
-    if (mode === 'credit') {
-      if (payModeCash) payModeCash.classList.remove('active');
-      if (payModeCredit) payModeCredit.classList.add('active');
-      if (cashSection) cashSection.style.display = 'none';
-      if (creditSection) creditSection.style.display = 'block';
-    } else {
-      if (payModeCash) payModeCash.classList.add('active');
-      if (payModeCredit) payModeCredit.classList.remove('active');
-      if (cashSection) cashSection.style.display = 'block';
-      if (creditSection) creditSection.style.display = 'none';
-    }
+    if (payModeCash) payModeCash.classList.toggle('active', mode === 'cash');
+    if (payModeCredit) payModeCredit.classList.toggle('active', mode === 'credit');
+    if (payModePartial) payModePartial.classList.toggle('active', mode === 'partial');
+
+    if (cashSection) cashSection.style.display = mode === 'cash' ? 'block' : 'none';
+    if (creditSection) creditSection.style.display = mode === 'credit' ? 'block' : 'none';
+    if (partialSection) partialSection.style.display = mode === 'partial' ? 'block' : 'none';
+
     updateCheckoutSummary();
   }
 
@@ -251,6 +269,8 @@ const initDashboard = async () => {
     if (discInp) discInp.value = '';
     const chargeInp = document.getElementById('coChargeInput');
     if (chargeInp) chargeInp.value = '';
+    const partialInp = document.getElementById('coPartialInput');
+    if (partialInp) partialInp.value = '';
     const soldToInp = document.getElementById('coSoldToInput');
     if (soldToInp) soldToInp.value = '';
 
@@ -303,10 +323,13 @@ const initDashboard = async () => {
     const qtyInp = document.getElementById('coQtyInput');
     const discInp = document.getElementById('coDiscountInput');
     const chargeInp = document.getElementById('coChargeInput');
+    const partialInp = document.getElementById('coPartialInput');
     const btnApplyDiscount = document.getElementById('btnApplyDiscount');
     const btnApplyCharge = document.getElementById('btnApplyCharge');
+    const btnApplyPartial = document.getElementById('btnApplyPartial');
     const payModeCash = document.getElementById('payModeCash');
     const payModeCredit = document.getElementById('payModeCredit');
+    const payModePartial = document.getElementById('payModePartial');
     const confirmBtn = document.getElementById('confirmCheckoutBtn');
 
     if (payModeCash) {
@@ -314,6 +337,9 @@ const initDashboard = async () => {
     }
     if (payModeCredit) {
       payModeCredit.addEventListener('click', () => setPayMode('credit'));
+    }
+    if (payModePartial) {
+      payModePartial.addEventListener('click', () => setPayMode('partial'));
     }
 
     if (btnApplyDiscount) {
@@ -326,6 +352,12 @@ const initDashboard = async () => {
       btnApplyCharge.addEventListener('click', () => {
         updateCheckoutSummary();
         showToast('Additional charge added to summary');
+      });
+    }
+    if (btnApplyPartial) {
+      btnApplyPartial.addEventListener('click', () => {
+        updateCheckoutSummary();
+        showToast('Partial payment applied to summary');
       });
     }
 
@@ -368,6 +400,9 @@ const initDashboard = async () => {
     if (chargeInp) {
       chargeInp.addEventListener('input', updateCheckoutSummary);
     }
+    if (partialInp) {
+      partialInp.addEventListener('input', updateCheckoutSummary);
+    }
 
     if (confirmBtn) {
       confirmBtn.addEventListener('click', async () => {
@@ -376,15 +411,21 @@ const initDashboard = async () => {
         const price = Number(_checkoutItem.price) || 0;
         const subtotal = qty * price;
         const isCredit = _payMode === 'credit';
-        const paymentStatus = isCredit ? 'unpaid' : 'paid';
+        const isPartial = _payMode === 'partial';
+        const paymentStatus = (isCredit || isPartial) ? 'unpaid' : 'paid';
 
         let discountAmt = 0;
         let chargeAmt = 0;
+        let partialAmt = 0;
         let total = subtotal;
 
         if (isCredit) {
           chargeAmt = Math.max(0, parseFloat(chargeInp ? chargeInp.value : 0) || 0);
           total = subtotal + chargeAmt;
+        } else if (isPartial) {
+          const rawPartial = Math.max(0, parseFloat(partialInp ? partialInp.value : 0) || 0);
+          partialAmt = Math.min(rawPartial, subtotal);
+          total = Math.max(0, subtotal - partialAmt);
         } else {
           const rawDisc = Math.max(0, parseFloat(discInp ? discInp.value : 0) || 0);
           discountAmt = Math.min(rawDisc, subtotal);
@@ -398,10 +439,7 @@ const initDashboard = async () => {
           return;
         }
 
-        confirmBtn.disabled = true;
-        confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...';
-
-        // Deduct locally
+        // 1. Instant local stock deduction
         const all = [...getStocks()];
         const idx = all.findIndex(s => String(s.id) === String(_checkoutItem.id));
         if (idx !== -1) {
@@ -410,53 +448,15 @@ const initDashboard = async () => {
           syncLocal(all);
         }
 
-        // Record in Supabase
-        try {
-          const soldToVal = (document.getElementById('coSoldToInput')?.value || '').trim();
-          const customerNote = soldToVal ? ` | Sold to: ${soldToVal}` : '';
-          const notes = (isCredit 
-            ? `Credit Sale (Charge: ₱${chargeAmt.toFixed(2)})` 
-            : (discountAmt > 0 ? `Cash Sale (Discount: ₱${discountAmt.toFixed(2)})` : 'Cash Sale')) + customerNote;
-
-          const { data: txn, error: txnErr } = await supabase
-            .from('transactions')
-            .insert([{
-              type: 'sale',
-              payment_status: paymentStatus,
-              subtotal,
-              discount: discountAmt,
-              total,
-              notes
-            }])
-            .select()
-            .single();
-
-          if (txn && !txnErr) {
-            const isStkLocalId = String(_checkoutItem.id).startsWith('stk_');
-            await supabase.from('transaction_items').insert([{
-              transaction_id: txn.id,
-              stock_item_id: isStkLocalId ? null : _checkoutItem.id,
-              product_name: _checkoutItem.name,
-              batch: _checkoutItem.batch || '',
-              unit_price: price,
-              quantity: qty,
-              item_discount: discountAmt
-            }]);
-          }
-
-          // Also update stock_items quantity in Supabase
-          if (!String(_checkoutItem.id).startsWith('stk_') && idx !== -1) {
-            await supabase
-              .from('stock_items')
-              .update({ quantity: all[idx].stocks })
-              .eq('id', _checkoutItem.id);
-          }
-        } catch (err) {
-          console.warn('Supabase checkout fallback:', err);
-        }
-
-        // Record locally
+        // 2. Instant local transaction log
         const soldToVal = (document.getElementById('coSoldToInput')?.value || '').trim();
+        const customerNote = soldToVal ? ` | Sold to: ${soldToVal}` : '';
+        const notes = (isCredit 
+          ? (chargeAmt > 0 ? `Credit Sale (Charge: ₱${chargeAmt.toFixed(2)})` : 'Credit Sale')
+          : isPartial
+          ? `Partial Sale (Paid: ₱${partialAmt.toFixed(2)}, Remaining Balance: ₱${total.toFixed(2)})`
+          : (discountAmt > 0 ? `Cash Sale (Discount: ₱${discountAmt.toFixed(2)})` : 'Cash Sale')) + customerNote;
+
         let txns = [];
         try { txns = JSON.parse(localStorage.getItem('inv_transactions') || '[]'); } catch (e) {}
         txns.unshift({
@@ -472,22 +472,64 @@ const initDashboard = async () => {
           subtotal,
           discount: discountAmt,
           charge: chargeAmt,
+          partial: partialAmt,
           total,
           type: 'sale',
           paymentStatus,
-          payMode: _payMode
+          payMode: _payMode,
+          notes
         });
         localStorage.setItem('inv_transactions', JSON.stringify(txns));
 
+        // 3. Instant UI feedback & Modal close (0ms delay)
         const itemName = _checkoutItem.name;
-        const modeLabel = isCredit ? 'Credit' : 'Cash';
-        confirmBtn.disabled = false;
-        confirmBtn.innerHTML = '<i class="fa-solid fa-check"></i> Submit Checkout';
+        const checkoutItemId = _checkoutItem.id;
+        const checkoutItemBatch = _checkoutItem.batch || '';
+        const modeLabel = isCredit ? 'Credit' : isPartial ? 'Partial' : 'Cash';
 
         closeCheckoutModal();
         renderSidebarStocks();
-        await loadDashboard(dateRangeSelect ? dateRangeSelect.value : 'week');
         showToast(`Checkout done! ${itemName} ×${qty} — ${currency(total)} (${modeLabel})`);
+        loadDashboard(dateRangeSelect ? dateRangeSelect.value : 'week');
+
+        // 4. Non-blocking background sync to Supabase
+        (async () => {
+          try {
+            const isStkLocalId = String(checkoutItemId).startsWith('stk_');
+            const txnPromise = supabase
+              .from('transactions')
+              .insert([{
+                type: 'sale',
+                payment_status: paymentStatus,
+                subtotal,
+                discount: discountAmt,
+                total,
+                notes
+              }])
+              .select()
+              .single();
+
+            const stockPromise = (!isStkLocalId && idx !== -1)
+              ? supabase.from('stock_items').update({ quantity: all[idx].stocks }).eq('id', checkoutItemId)
+              : Promise.resolve();
+
+            const [{ data: txn, error: txnErr }] = await Promise.all([txnPromise, stockPromise]);
+
+            if (txn && !txnErr) {
+              await supabase.from('transaction_items').insert([{
+                transaction_id: txn.id,
+                stock_item_id: isStkLocalId ? null : checkoutItemId,
+                product_name: itemName,
+                batch: checkoutItemBatch,
+                unit_price: price,
+                quantity: qty,
+                item_discount: discountAmt
+              }]);
+            }
+          } catch (err) {
+            console.warn('Supabase checkout background sync:', err);
+          }
+        })();
       });
     }
 
@@ -526,23 +568,27 @@ const initDashboard = async () => {
       console.warn('Expenses fetch fallback:', e);
     }
 
-    // Also merge any local offline transactions / expenses if Supabase has none
-    if (txns.length === 0) {
-      try {
-        const local = JSON.parse(localStorage.getItem('inv_transactions') || '[]');
-        if (Array.isArray(local) && local.length > 0) {
-          txns = local.map(t => ({
-            id: t.id,
-            reference_no: `TXN-${String(t.id).slice(-6)}`,
-            total: t.total,
-            discount: t.discount || 0,
-            payment_status: t.paymentStatus || 'paid',
-            notes: t.notes || (t.productName ? `${t.productName} (x${t.qty})` : 'Sale'),
-            created_at: t.date || new Date().toISOString()
-          }));
-        }
-      } catch (e) {}
-    }
+    // Always merge any recent/local transactions not yet returned by Supabase
+    try {
+      const local = JSON.parse(localStorage.getItem('inv_transactions') || '[]');
+      if (Array.isArray(local) && local.length > 0) {
+        local.forEach(t => {
+          const exists = txns.some(remote => String(remote.id) === String(t.id));
+          if (!exists) {
+            txns.push({
+              id: t.id,
+              reference_no: `TXN-${String(t.id).slice(-6)}`,
+              total: t.total,
+              discount: t.discount || 0,
+              partial: t.partial || 0,
+              payment_status: t.paymentStatus || 'paid',
+              notes: t.notes || (t.productName ? `${t.productName} (x${t.qty})` : 'Sale'),
+              created_at: t.date || new Date().toISOString()
+            });
+          }
+        });
+      }
+    } catch (e) {}
 
     if (expenses.length === 0) {
       try {
@@ -552,6 +598,15 @@ const initDashboard = async () => {
         }
       } catch (e) {}
     }
+
+    // Filter out any deleted transactions or expenses from persistent registry
+    try {
+      const deletedSet = new Set(JSON.parse(localStorage.getItem('inv_deleted_txns') || '[]').map(String));
+      if (deletedSet.size > 0) {
+        txns = txns.filter(t => !deletedSet.has(String(t.id)) && (!t.reference_no || !deletedSet.has(String(t.reference_no))) && (!t.ref || !deletedSet.has(String(t.ref))));
+        expenses = expenses.filter(e => !deletedSet.has(String(e.id)));
+      }
+    } catch (e) {}
 
     // ── DATE RANGE FILTERING ────────────────────────────────────────────────
     const now = new Date();
@@ -608,15 +663,31 @@ const initDashboard = async () => {
     let totalUnpaid = 0;
     let totalDiscount = 0;
 
+    const getPartialPaid = (t) => {
+      let p = Number(t.partial) || 0;
+      if (!p && t.notes && t.notes.includes('Partial Sale')) {
+        const m = t.notes.match(/Paid:\s*₱?([\d,.]+)/i);
+        if (m) p = parseFloat(m[1].replace(/,/g, '')) || 0;
+      }
+      return p;
+    };
+
     filteredTxns.forEach(t => {
       const disc = Number(t.discount) || 0;
       const amt = t.total !== undefined && t.total !== null && !isNaN(Number(t.total))
         ? Number(t.total)
         : Math.max(0, (Number(t.subtotal) || 0) + (Number(t.charge) || 0) - disc);
 
-      if (t.payment_status === 'paid') totalPaid += amt;
-      else if (t.payment_status === 'unpaid') totalUnpaid += amt;
-      else totalPaid += amt;
+      const pPaid = getPartialPaid(t);
+
+      if (t.payment_status === 'paid') {
+        totalPaid += amt;
+      } else if (t.payment_status === 'unpaid' || t.payment_status === 'partial') {
+        totalUnpaid += amt;
+        if (pPaid > 0) totalPaid += pPaid;
+      } else {
+        totalPaid += amt;
+      }
       totalDiscount += disc;
     });
 
@@ -672,8 +743,14 @@ const initDashboard = async () => {
         if (!d || toYMD(d) !== todayStr) return;
         const bucket = Math.min(5, Math.floor(d.getHours() / 4));
         const amt = Number(t.total) || 0;
-        if (t.payment_status === 'unpaid') chartUnpaid[bucket] += amt;
-        else chartPaid[bucket] += amt;
+        const isUnpaid = t.payment_status === 'unpaid' || t.payment_status === 'partial';
+        if (isUnpaid) {
+          chartUnpaid[bucket] += amt;
+          const pPaid = getPartialPaid(t);
+          if (pPaid > 0) chartPaid[bucket] += pPaid;
+        } else {
+          chartPaid[bucket] += amt;
+        }
       });
 
       filteredExpenses.forEach(e => {
@@ -708,8 +785,14 @@ const initDashboard = async () => {
         const idx = weekDates.indexOf(ymd);
         if (idx !== -1) {
           const amt = Number(t.total) || 0;
-          if (t.payment_status === 'unpaid') chartUnpaid[idx] += amt;
-          else chartPaid[idx] += amt;
+          const isUnpaid = t.payment_status === 'unpaid' || t.payment_status === 'partial';
+          if (isUnpaid) {
+            chartUnpaid[idx] += amt;
+            const pPaid = getPartialPaid(t);
+            if (pPaid > 0) chartPaid[idx] += pPaid;
+          } else {
+            chartPaid[idx] += amt;
+          }
         }
       });
 
@@ -735,8 +818,14 @@ const initDashboard = async () => {
         if (!d) return;
         const weekBucket = Math.min(3, Math.floor((d.getDate() - 1) / 7));
         const amt = Number(t.total) || 0;
-        if (t.payment_status === 'unpaid') chartUnpaid[weekBucket] += amt;
-        else chartPaid[weekBucket] += amt;
+        const isUnpaid = t.payment_status === 'unpaid' || t.payment_status === 'partial';
+        if (isUnpaid) {
+          chartUnpaid[weekBucket] += amt;
+          const pPaid = getPartialPaid(t);
+          if (pPaid > 0) chartPaid[weekBucket] += pPaid;
+        } else {
+          chartPaid[weekBucket] += amt;
+        }
       });
 
       filteredExpenses.forEach(e => {
@@ -761,8 +850,14 @@ const initDashboard = async () => {
         const bucket = d.getMonth() - startMonth;
         if (bucket >= 0 && bucket < 3) {
           const amt = Number(t.total) || 0;
-          if (t.payment_status === 'unpaid') chartUnpaid[bucket] += amt;
-          else chartPaid[bucket] += amt;
+          const isUnpaid = t.payment_status === 'unpaid' || t.payment_status === 'partial';
+          if (isUnpaid) {
+            chartUnpaid[bucket] += amt;
+            const pPaid = getPartialPaid(t);
+            if (pPaid > 0) chartPaid[bucket] += pPaid;
+          } else {
+            chartPaid[bucket] += amt;
+          }
         }
       });
 
@@ -788,8 +883,14 @@ const initDashboard = async () => {
         if (!d) return;
         const m = d.getMonth();
         const amt = Number(t.total) || 0;
-        if (t.payment_status === 'unpaid') chartUnpaid[m] += amt;
-        else chartPaid[m] += amt;
+        const isUnpaid = t.payment_status === 'unpaid' || t.payment_status === 'partial';
+        if (isUnpaid) {
+          chartUnpaid[m] += amt;
+          const pPaid = getPartialPaid(t);
+          if (pPaid > 0) chartPaid[m] += pPaid;
+        } else {
+          chartPaid[m] += amt;
+        }
       });
 
       filteredExpenses.forEach(e => {

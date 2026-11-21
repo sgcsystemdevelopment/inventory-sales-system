@@ -165,6 +165,26 @@ const initTransactions = async () => {
   // ── DATA ──────────────────────────────────────────────────────────────────
   let allRecords = [];
 
+  const getDeletedRegistry = () => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem('inv_deleted_txns') || '[]').map(String));
+    } catch(e) {
+      return new Set();
+    }
+  };
+
+  const markRecordDeleted = (record) => {
+    try {
+      const existing = JSON.parse(localStorage.getItem('inv_deleted_txns') || '[]');
+      const set = new Set(existing.map(String));
+      if (record.id) set.add(String(record.id));
+      if (record.ref) set.add(String(record.ref));
+      if (record._raw?.id) set.add(String(record._raw.id));
+      if (record._raw?.reference_no) set.add(String(record._raw.reference_no));
+      localStorage.setItem('inv_deleted_txns', JSON.stringify([...set]));
+    } catch(e) {}
+  };
+
   async function loadAllTransactions() {
     let txns = [], expenses = [];
 
@@ -184,70 +204,92 @@ const initTransactions = async () => {
       if (Array.isArray(data)) expenses = data;
     } catch(e) { console.warn('Expense fetch fallback:', e); }
 
-    const mappedTxns = txns.map(t => {
-      const items = Array.isArray(t.transaction_items) ? t.transaction_items : [];
-      const itemDesc = items.map(it => `${it.product_name || 'Item'} ×${it.quantity || 1}`).join(', ');
-      return {
-        id: t.id,
-        type: 'sale',
-        ref: t.reference_no || `TXN-${String(t.id).slice(0, 6).toUpperCase()}`,
-        description: itemDesc || t.notes || 'Counter Sale',
-        amount: Number(t.total) || 0,
-        date: t.created_at ? t.created_at.slice(0, 10) : '',
-        status: t.payment_status || 'paid',
-        items: items,
-        _raw: t
-      };
-    });
+    const deletedSet = getDeletedRegistry();
+    const isDeleted = (r) => {
+      if (deletedSet.size === 0) return false;
+      if (r.id && deletedSet.has(String(r.id))) return true;
+      if (r.ref && deletedSet.has(String(r.ref))) return true;
+      if (r.reference_no && deletedSet.has(String(r.reference_no))) return true;
+      if (r._raw?.id && deletedSet.has(String(r._raw.id))) return true;
+      if (r._raw?.reference_no && deletedSet.has(String(r._raw.reference_no))) return true;
+      return false;
+    };
 
-    const mappedExp = expenses.map(e => ({
-      id: e.id,
-      type: 'expense',
-      ref: `EXP-${String(e.id).slice(0, 6).toUpperCase()}`,
-      description: e.title || e.category || 'Expense',
-      amount: Number(e.amount) || 0,
-      date: e.expense_date || (e.created_at ? e.created_at.slice(0, 10) : ''),
-      status: 'recorded',
-      items: [],
-      _raw: e
-    }));
+    const mappedTxns = txns
+      .map(t => {
+        const items = Array.isArray(t.transaction_items) ? t.transaction_items : [];
+        const itemDesc = items.map(it => `${it.product_name || 'Item'} ×${it.quantity || 1}`).join(', ');
+        return {
+          id: t.id,
+          type: 'sale',
+          ref: t.reference_no || `TXN-${String(t.id).slice(0, 6).toUpperCase()}`,
+          description: itemDesc || t.notes || 'Counter Sale',
+          amount: Number(t.total) || 0,
+          date: t.created_at ? t.created_at.slice(0, 10) : '',
+          status: t.payment_status || 'paid',
+          items: items,
+          _raw: t
+        };
+      })
+      .filter(t => !isDeleted(t));
 
-    // Merge local fallback if Supabase empty
-    if (!txns.length) {
-      let localTxns = [];
-      try { localTxns = JSON.parse(localStorage.getItem('inv_transactions') || '[]'); } catch(e) {}
-      localTxns.forEach(t => mappedTxns.push({
-        id: t.id,
-        type: 'sale',
-        ref: `TXN-${String(t.id).slice(-5)}`,
-        description: `${t.productName || ''} ×${t.qty || ''}`.trim() || 'Counter Sale',
-        amount: Number(t.total) || 0,
-        date: t.date ? t.date.slice(0, 10) : '',
-        status: t.paymentStatus || 'paid',
-        items: [{
-          stock_item_id: t.productId,
-          product_name: t.productName,
-          quantity: t.qty,
-          unit_price: t.price,
-          item_discount: t.discount
-        }],
-        _raw: t
-      }));
-    }
-    if (!expenses.length) {
-      let localExp = [];
-      try { localExp = JSON.parse(localStorage.getItem('inv_expenses_data') || '[]'); } catch(e) {}
-      localExp.forEach(e => mappedExp.push({
+    const mappedExp = expenses
+      .map(e => ({
         id: e.id,
         type: 'expense',
-        ref: `EXP-${String(e.id).slice(-5)}`,
+        ref: `EXP-${String(e.id).slice(0, 6).toUpperCase()}`,
         description: e.title || e.category || 'Expense',
         amount: Number(e.amount) || 0,
-        date: e.date || '',
+        date: e.expense_date || (e.created_at ? e.created_at.slice(0, 10) : ''),
         status: 'recorded',
         items: [],
         _raw: e
-      }));
+      }))
+      .filter(e => !isDeleted(e));
+
+    // Merge any local transactions not yet in Supabase
+    let localTxns = [];
+    try { localTxns = JSON.parse(localStorage.getItem('inv_transactions') || '[]'); } catch(e) {}
+    localTxns.forEach(t => {
+      if (isDeleted(t)) return;
+      const exists = mappedTxns.some(m => String(m.id) === String(t.id) || (t.ref && m.ref === t.ref));
+      if (!exists) {
+        mappedTxns.push({
+          id: t.id,
+          type: 'sale',
+          ref: `TXN-${String(t.id).slice(-5)}`,
+          description: `${t.productName || ''} ×${t.qty || ''}`.trim() || 'Counter Sale',
+          amount: Number(t.total) || 0,
+          date: t.date ? t.date.slice(0, 10) : '',
+          status: t.paymentStatus || 'paid',
+          items: [{
+            stock_item_id: t.productId,
+            product_name: t.productName,
+            quantity: t.qty,
+            unit_price: t.unitPrice || t.price,
+            item_discount: t.discount
+          }],
+          _raw: t
+        });
+      }
+    });
+    if (!expenses.length) {
+      let localExp = [];
+      try { localExp = JSON.parse(localStorage.getItem('inv_expenses_data') || '[]'); } catch(e) {}
+      localExp.forEach(e => {
+        if (isDeleted(e)) return;
+        mappedExp.push({
+          id: e.id,
+          type: 'expense',
+          ref: `EXP-${String(e.id).slice(-5)}`,
+          description: e.title || e.category || 'Expense',
+          amount: Number(e.amount) || 0,
+          date: e.date || '',
+          status: 'recorded',
+          items: [],
+          _raw: e
+        });
+      });
     }
 
     allRecords = [...mappedTxns, ...mappedExp].sort((a, b) => b.date.localeCompare(a.date));
@@ -327,10 +369,10 @@ const initTransactions = async () => {
         <td style="text-align:right;font-weight:700;">${currency(r.amount)}</td>
         <td style="text-align:center;">
           <div class="action-btns" onclick="event.stopPropagation()">
-            <button type="button" class="btn-icon-action edit btn-txn-edit" data-idx="${start + i}" title="Edit">
+            <button type="button" class="btn-icon-action edit btn-txn-edit" data-id="${r.id}" data-ref="${r.ref}" title="Edit">
               <i class="fa-solid fa-pen-to-square"></i>
             </button>
-            <button type="button" class="btn-icon-action delete btn-txn-delete" data-idx="${start + i}" title="Delete">
+            <button type="button" class="btn-icon-action delete btn-txn-delete" data-id="${r.id}" data-ref="${r.ref}" title="Delete">
               <i class="fa-solid fa-trash-can"></i>
             </button>
           </div>
@@ -359,16 +401,20 @@ const initTransactions = async () => {
     txnTableBody.querySelectorAll('.btn-txn-edit').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const idx = Number(btn.dataset.idx);
-        if (filtered[idx]) openEditModal(filtered[idx]);
+        const id = btn.dataset.id;
+        const ref = btn.dataset.ref;
+        const record = allRecords.find(r => (id && String(r.id) === String(id)) || (ref && r.ref === ref));
+        if (record) openEditModal(record);
       });
     });
 
     txnTableBody.querySelectorAll('.btn-txn-delete').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const idx = Number(btn.dataset.idx);
-        if (filtered[idx]) handleDeleteTransaction(filtered[idx]);
+        const id = btn.dataset.id;
+        const ref = btn.dataset.ref;
+        const record = allRecords.find(r => (id && String(r.id) === String(id)) || (ref && r.ref === ref));
+        if (record) handleDeleteTransaction(record);
       });
     });
   }
@@ -646,94 +692,133 @@ const initTransactions = async () => {
 
     if (!window.confirm(confirmMsg)) return;
 
+    // 1. Mark as permanently deleted in persistent registry
+    markRecordDeleted(record);
+
+    // 2. Remove from local transactions / expenses immediately
     if (isSale) {
-      // 1. Restore stock in Supabase & Local
+      try {
+        const rawTxns = localStorage.getItem('inv_transactions');
+        if (rawTxns) {
+          let txnsArr = JSON.parse(rawTxns);
+          txnsArr = txnsArr.filter(t => 
+            String(t.id) !== String(record.id) &&
+            (!record.ref || t.ref !== record.ref) &&
+            (!record._raw?.id || String(t.id) !== String(record._raw.id))
+          );
+          localStorage.setItem('inv_transactions', JSON.stringify(txnsArr));
+        }
+      } catch (e) {}
+
+      // 3. Restore stock in local storage
       const items = Array.isArray(record.items) && record.items.length > 0
         ? record.items
         : (record._raw?.transaction_items || []);
 
-      for (const it of items) {
-        const qty = Number(it.quantity) || 0;
-        const stockId = it.stock_item_id;
-        if (qty > 0 && stockId) {
-          try {
-            const { data: stData } = await supabase
-              .from('stock_items')
-              .select('quantity')
-              .eq('id', stockId)
-              .single();
-            if (stData) {
-              const restoredQty = (Number(stData.quantity) || 0) + qty;
-              await supabase.from('stock_items').update({ quantity: restoredQty }).eq('id', stockId);
-            }
-          } catch (e) {
-            console.warn('Error restoring Supabase stock:', e);
-          }
-        }
-      }
-
-      // Restore in localStorage inv_stocks_data
       try {
         const rawStocks = localStorage.getItem('inv_stocks_data');
         if (rawStocks) {
           let stocksArr = JSON.parse(rawStocks);
-          items.forEach(it => {
-            const qty = Number(it.quantity) || 0;
-            const stockId = it.stock_item_id;
-            const pName = it.product_name;
-            const sIdx = stocksArr.findIndex(s => (stockId && String(s.id) === String(stockId)) || (pName && s.name === pName));
-            if (sIdx !== -1) {
-              stocksArr[sIdx].stocks = (Number(stocksArr[sIdx].stocks) || 0) + qty;
+          let restored = false;
+
+          if (items.length > 0) {
+            items.forEach(it => {
+              const qty = Number(it.quantity) || 0;
+              const stockId = it.stock_item_id;
+              const pName = it.product_name;
+              const sIdx = stocksArr.findIndex(s => 
+                (stockId && String(s.id) === String(stockId)) || 
+                (pName && s.name && s.name.trim().toLowerCase() === pName.trim().toLowerCase())
+              );
+              if (sIdx !== -1 && qty > 0) {
+                stocksArr[sIdx].stocks = Math.max(0, (Number(stocksArr[sIdx].stocks) || 0) + qty);
+                stocksArr[sIdx].updatedAt = new Date().toISOString();
+                restored = true;
+              }
+            });
+          } else if (record.description) {
+            const match = record.description.match(/^(.*?)(?:\s*[×x]\s*(\d+))?$/i);
+            if (match) {
+              const pName = match[1].trim();
+              const qty = parseInt(match[2]) || 1;
+              const sIdx = stocksArr.findIndex(s => s.name && s.name.trim().toLowerCase() === pName.toLowerCase());
+              if (sIdx !== -1) {
+                stocksArr[sIdx].stocks = Math.max(0, (Number(stocksArr[sIdx].stocks) || 0) + qty);
+                stocksArr[sIdx].updatedAt = new Date().toISOString();
+                restored = true;
+              }
             }
-          });
-          localStorage.setItem('inv_stocks_data', JSON.stringify(stocksArr));
+          }
+
+          if (restored) {
+            localStorage.setItem('inv_stocks_data', JSON.stringify(stocksArr));
+          }
         }
       } catch (e) {
         console.warn('Error restoring local stock:', e);
       }
 
-      // 2. Delete from Supabase
-      try {
-        await supabase.from('transaction_items').delete().eq('transaction_id', record.id);
-        const { error: delErr } = await supabase.from('transactions').delete().eq('id', record.id);
-        if (delErr) console.warn('Supabase delete error:', delErr);
-      } catch (e) {
-        console.warn('Supabase delete error:', e);
-      }
-
-      // 3. Delete from localStorage inv_transactions
-      try {
-        const rawTxns = localStorage.getItem('inv_transactions');
-        if (rawTxns) {
-          let txnsArr = JSON.parse(rawTxns);
-          txnsArr = txnsArr.filter(t => String(t.id) !== String(record.id) && t.ref !== record.ref);
-          localStorage.setItem('inv_transactions', JSON.stringify(txnsArr));
-        }
-      } catch (e) {}
-
       renderGlobalSidebarStocks('sidebarStocksList');
-      showToast('Checkout deleted and stock restored!', 'success');
+      showToast('Checkout deleted and stock restored!', 'danger');
     } else {
       // Expense delete
-      try {
-        await supabase.from('expenses').delete().eq('id', record.id);
-      } catch (e) {
-        console.warn('Supabase delete expense error:', e);
-      }
-
       try {
         const rawExp = localStorage.getItem('inv_expenses_data');
         if (rawExp) {
           let expArr = JSON.parse(rawExp);
-          expArr = expArr.filter(e => String(e.id) !== String(record.id));
+          expArr = expArr.filter(e => String(e.id) !== String(record.id) && (!record.ref || e.ref !== record.ref));
           localStorage.setItem('inv_expenses_data', JSON.stringify(expArr));
         }
       } catch (e) {}
 
-      showToast('Expense record deleted!', 'success');
+      showToast('Expense record deleted!', 'danger');
     }
 
-    await loadAllTransactions();
+    // 4. Update memory state and table UI instantly
+    allRecords = allRecords.filter(r => 
+      String(r.id) !== String(record.id) &&
+      (!record.ref || r.ref !== record.ref) &&
+      (!record._raw?.id || String(r.id) !== String(record._raw.id))
+    );
+    updateSummaryCards();
+    renderTable();
+
+    // 5. Non-blocking background sync to Supabase
+    (async () => {
+      try {
+        const isUUID = (id) => typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+        const targetId = record._raw?.id || record.id;
+        if (isSale) {
+          const items = Array.isArray(record.items) && record.items.length > 0
+            ? record.items
+            : (record._raw?.transaction_items || []);
+
+          for (const it of items) {
+            const qty = Number(it.quantity) || 0;
+            const stockId = it.stock_item_id;
+            if (qty > 0 && stockId && isUUID(stockId)) {
+              try {
+                const { data: stData } = await supabase.from('stock_items').select('quantity').eq('id', stockId).single();
+                if (stData) {
+                  const restoredQty = (Number(stData.quantity) || 0) + qty;
+                  await supabase.from('stock_items').update({ quantity: restoredQty }).eq('id', stockId);
+                }
+              } catch(e) {}
+            }
+          }
+          if (isUUID(targetId)) {
+            await supabase.from('transaction_items').delete().eq('transaction_id', targetId);
+            await supabase.from('transactions').delete().eq('id', targetId);
+          }
+        } else {
+          if (isUUID(targetId)) {
+            await supabase.from('expenses').delete().eq('id', targetId);
+          }
+        }
+      } catch (e) {
+        console.warn('Background Supabase delete error:', e);
+      }
+    })();
   }
 
   // ── EXPORT CSV ────────────────────────────────────────────────────────────

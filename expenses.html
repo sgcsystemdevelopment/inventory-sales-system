@@ -358,7 +358,7 @@
             <button type="button" class="stepper-btn" id="coQtyPlus"><i class="fa-solid fa-plus"></i></button>
           </div>
         </div>
-        <!-- Payment Method: Cash or Credit -->
+        <!-- Payment Method: Cash, Credit, or Partial -->
         <div class="form-field">
           <label>Payment Method</label>
           <div class="payment-method-toggle">
@@ -367,6 +367,9 @@
             </button>
             <button type="button" class="btn-pay-mode" id="payModeCredit">
               <i class="fa-solid fa-credit-card"></i> Credit
+            </button>
+            <button type="button" class="btn-pay-mode" id="payModePartial">
+              <i class="fa-solid fa-hand-holding-dollar"></i> Partial
             </button>
           </div>
         </div>
@@ -396,12 +399,26 @@
             </button>
           </div>
         </div>
+        <!-- Partial Section: Partial Payment -->
+        <div class="form-field" id="partialSection" style="display:none;">
+          <label for="coPartialInput">Partial Payment (₱)</label>
+          <div class="input-action-group">
+            <div class="form-input-wrapper">
+              <i class="fa-solid fa-hand-holding-dollar field-icon"></i>
+              <input type="number" id="coPartialInput" min="0" step="0.01" placeholder="Enter partial payment (₱)">
+            </div>
+            <button type="button" class="btn-addon-action" id="btnApplyPartial">
+              <i class="fa-solid fa-check"></i> Apply Partial
+            </button>
+          </div>
+        </div>
         <!-- Summary Box -->
         <div class="checkout-summary-box">
           <div class="co-summary-row"><span>Subtotal</span><span id="coSubtotal">₱0.00</span></div>
           <div class="co-summary-row discount" id="summaryDiscountRow"><span>Discount</span><span id="coDiscount">-₱0.00</span></div>
           <div class="co-summary-row charge" id="summaryChargeRow" style="display:none;"><span>Additional Charge</span><span id="coCharge">+₱0.00</span></div>
-          <div class="co-summary-row grand-total"><span>Total</span><span id="coGrandTotal">₱0.00</span></div>
+          <div class="co-summary-row partial" id="summaryPartialRow" style="display:none;"><span>Partial Paid</span><span id="coPartial">-₱0.00</span></div>
+          <div class="co-summary-row grand-total"><span id="coTotalLabel">Total</span><span id="coGrandTotal">₱0.00</span></div>
         </div>
       </div>
       <div class="modal-btn-actions" style="padding:0 1.5rem 0;margin-top:1rem;">

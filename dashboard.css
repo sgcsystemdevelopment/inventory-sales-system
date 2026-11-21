@@ -1141,7 +1141,7 @@ tbody tr:hover td { background: var(--bg-body); color: var(--text-primary); }
    ========================================================================== */
 .payment-method-toggle {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   margin-top: 4px;
 }
@@ -1215,6 +1215,10 @@ tbody tr:hover td { background: var(--bg-body); color: var(--text-primary); }
 
 .co-summary-row.charge span:last-child {
   color: #f59e0b;
+}
+
+.co-summary-row.partial span:last-child {
+  color: #3b82f6;
 }
 
 [data-theme="dark"] .btn-pay-mode {

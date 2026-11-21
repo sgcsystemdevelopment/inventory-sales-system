@@ -760,8 +760,11 @@ const initInventory = async () => {
 
     const chargeRow = document.getElementById('summaryChargeRow');
     const discountRow = document.getElementById('summaryDiscountRow');
+    const partialRow = document.getElementById('summaryPartialRow');
     const chargeValEl = document.getElementById('coCharge');
     const discValEl = document.getElementById('coDiscount');
+    const partialValEl = document.getElementById('coPartial');
+    const totalLabelEl = document.getElementById('coTotalLabel');
     const totalEl = document.getElementById('coGrandTotal');
 
     if (_payMode === 'credit') {
@@ -771,8 +774,22 @@ const initInventory = async () => {
 
       if (chargeRow) chargeRow.style.display = 'flex';
       if (discountRow) discountRow.style.display = 'none';
+      if (partialRow) partialRow.style.display = 'none';
       if (chargeValEl) chargeValEl.textContent = '+' + fmtPeso(chargeAmt);
+      if (totalLabelEl) totalLabelEl.textContent = 'Total (Credit)';
       if (totalEl) totalEl.textContent = fmtPeso(total);
+    } else if (_payMode === 'partial') {
+      const partialInp = document.getElementById('coPartialInput');
+      const rawPartial = Math.max(0, parseFloat(partialInp ? partialInp.value : 0) || 0);
+      const partialAmt = Math.min(rawPartial, subtotal);
+      const remainingCredit = Math.max(0, subtotal - partialAmt);
+
+      if (chargeRow) chargeRow.style.display = 'none';
+      if (discountRow) discountRow.style.display = 'none';
+      if (partialRow) partialRow.style.display = 'flex';
+      if (partialValEl) partialValEl.textContent = '-' + fmtPeso(partialAmt);
+      if (totalLabelEl) totalLabelEl.textContent = 'Remaining Unpaid';
+      if (totalEl) totalEl.textContent = fmtPeso(remainingCredit);
     } else {
       const discInp = document.getElementById('coDiscountInput');
       const discVal = Math.max(0, parseFloat(discInp ? discInp.value : 0) || 0);
@@ -781,7 +798,9 @@ const initInventory = async () => {
 
       if (chargeRow) chargeRow.style.display = 'none';
       if (discountRow) discountRow.style.display = 'flex';
+      if (partialRow) partialRow.style.display = 'none';
       if (discValEl) discValEl.textContent = '-' + fmtPeso(discountAmt);
+      if (totalLabelEl) totalLabelEl.textContent = 'Total';
       if (totalEl) totalEl.textContent = fmtPeso(total);
     }
   }
@@ -790,20 +809,19 @@ const initInventory = async () => {
     _payMode = mode;
     const payModeCash = document.getElementById('payModeCash');
     const payModeCredit = document.getElementById('payModeCredit');
+    const payModePartial = document.getElementById('payModePartial');
     const cashSection = document.getElementById('cashSection');
     const creditSection = document.getElementById('creditSection');
+    const partialSection = document.getElementById('partialSection');
 
-    if (mode === 'credit') {
-      if (payModeCash) payModeCash.classList.remove('active');
-      if (payModeCredit) payModeCredit.classList.add('active');
-      if (cashSection) cashSection.style.display = 'none';
-      if (creditSection) creditSection.style.display = 'block';
-    } else {
-      if (payModeCash) payModeCash.classList.add('active');
-      if (payModeCredit) payModeCredit.classList.remove('active');
-      if (cashSection) cashSection.style.display = 'block';
-      if (creditSection) creditSection.style.display = 'none';
-    }
+    if (payModeCash) payModeCash.classList.toggle('active', mode === 'cash');
+    if (payModeCredit) payModeCredit.classList.toggle('active', mode === 'credit');
+    if (payModePartial) payModePartial.classList.toggle('active', mode === 'partial');
+
+    if (cashSection) cashSection.style.display = mode === 'cash' ? 'block' : 'none';
+    if (creditSection) creditSection.style.display = mode === 'credit' ? 'block' : 'none';
+    if (partialSection) partialSection.style.display = mode === 'partial' ? 'block' : 'none';
+
     updateCheckoutSummary();
   }
 
@@ -824,6 +842,10 @@ const initInventory = async () => {
     if (discInp) discInp.value = '';
     const chargeInp = document.getElementById('coChargeInput');
     if (chargeInp) chargeInp.value = '';
+    const partialInp = document.getElementById('coPartialInput');
+    if (partialInp) partialInp.value = '';
+    const soldToInp = document.getElementById('coSoldToInput');
+    if (soldToInp) soldToInp.value = '';
 
     const minusBtn = document.getElementById('coQtyMinus');
     const plusBtn = document.getElementById('coQtyPlus');
@@ -864,8 +886,10 @@ const initInventory = async () => {
     const chargeInp = document.getElementById('coChargeInput');
     const btnApplyDiscount = document.getElementById('btnApplyDiscount');
     const btnApplyCharge = document.getElementById('btnApplyCharge');
+    const btnApplyPartial = document.getElementById('btnApplyPartial');
     const payModeCash = document.getElementById('payModeCash');
     const payModeCredit = document.getElementById('payModeCredit');
+    const payModePartial = document.getElementById('payModePartial');
     const confirmBtn = document.getElementById('confirmCheckoutBtn');
 
     if (payModeCash) {
@@ -873,6 +897,9 @@ const initInventory = async () => {
     }
     if (payModeCredit) {
       payModeCredit.addEventListener('click', () => setPayMode('credit'));
+    }
+    if (payModePartial) {
+      payModePartial.addEventListener('click', () => setPayMode('partial'));
     }
 
     if (btnApplyDiscount) {
@@ -885,6 +912,12 @@ const initInventory = async () => {
       btnApplyCharge.addEventListener('click', () => {
         updateCheckoutSummary();
         showToast('Additional charge added to summary');
+      });
+    }
+    if (btnApplyPartial) {
+      btnApplyPartial.addEventListener('click', () => {
+        updateCheckoutSummary();
+        showToast('Partial payment applied to summary');
       });
     }
 
@@ -921,11 +954,15 @@ const initInventory = async () => {
       });
     }
 
+    const partialInp = document.getElementById('coPartialInput');
     if (discInp) {
       discInp.addEventListener('input', updateCheckoutSummary);
     }
     if (chargeInp) {
       chargeInp.addEventListener('input', updateCheckoutSummary);
+    }
+    if (partialInp) {
+      partialInp.addEventListener('input', updateCheckoutSummary);
     }
 
     if (confirmBtn) {
@@ -935,15 +972,21 @@ const initInventory = async () => {
         const price = Number(_checkoutItem.price) || 0;
         const subtotal = qty * price;
         const isCredit = _payMode === 'credit';
-        const paymentStatus = isCredit ? 'unpaid' : 'paid';
+        const isPartial = _payMode === 'partial';
+        const paymentStatus = (isCredit || isPartial) ? 'unpaid' : 'paid';
 
         let discountAmt = 0;
         let chargeAmt = 0;
+        let partialAmt = 0;
         let total = subtotal;
 
         if (isCredit) {
           chargeAmt = Math.max(0, parseFloat(chargeInp ? chargeInp.value : 0) || 0);
           total = subtotal + chargeAmt;
+        } else if (isPartial) {
+          const rawPartial = Math.max(0, parseFloat(partialInp ? partialInp.value : 0) || 0);
+          partialAmt = Math.min(rawPartial, subtotal);
+          total = Math.max(0, subtotal - partialAmt);
         } else {
           const rawDisc = Math.max(0, parseFloat(discInp ? discInp.value : 0) || 0);
           discountAmt = Math.min(rawDisc, subtotal);
@@ -957,10 +1000,7 @@ const initInventory = async () => {
           return;
         }
 
-        confirmBtn.disabled = true;
-        confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...';
-
-        // Deduct locally
+        // 1. Instant local stock deduction
         const all = [...getStocks()];
         const idx = all.findIndex(s => String(s.id) === String(_checkoutItem.id));
         if (idx !== -1) {
@@ -969,50 +1009,15 @@ const initInventory = async () => {
           syncLocal(all);
         }
 
-        // Record transaction in Supabase
-        try {
-          const notes = isCredit 
-            ? `Credit Sale (Charge: ₱${chargeAmt.toFixed(2)})` 
-            : (discountAmt > 0 ? `Cash Sale (Discount: ₱${discountAmt.toFixed(2)})` : 'Cash Sale');
+        // 2. Instant local transaction log
+        const soldToVal = (document.getElementById('coSoldToInput')?.value || '').trim();
+        const customerNote = soldToVal ? ` | Sold to: ${soldToVal}` : '';
+        const notes = (isCredit 
+          ? (chargeAmt > 0 ? `Credit Sale (Charge: ₱${chargeAmt.toFixed(2)})` : 'Credit Sale')
+          : isPartial
+          ? `Partial Sale (Paid: ₱${partialAmt.toFixed(2)}, Remaining Balance: ₱${total.toFixed(2)})`
+          : (discountAmt > 0 ? `Cash Sale (Discount: ₱${discountAmt.toFixed(2)})` : 'Cash Sale')) + customerNote;
 
-          const { data: txn, error: txnErr } = await supabase
-            .from('transactions')
-            .insert([{
-              type: 'sale',
-              payment_status: paymentStatus,
-              subtotal,
-              discount: discountAmt,
-              total,
-              notes
-            }])
-            .select()
-            .single();
-
-          if (txn && !txnErr) {
-            const isStkLocalId = String(_checkoutItem.id).startsWith('stk_');
-            await supabase.from('transaction_items').insert([{
-              transaction_id: txn.id,
-              stock_item_id: isStkLocalId ? null : _checkoutItem.id,
-              product_name: _checkoutItem.name,
-              batch: _checkoutItem.batch || '',
-              unit_price: price,
-              quantity: qty,
-              item_discount: discountAmt
-            }]);
-          }
-
-          // Also update stock_items quantity in Supabase
-          if (!String(_checkoutItem.id).startsWith('stk_') && idx !== -1) {
-            await supabase
-              .from('stock_items')
-              .update({ quantity: all[idx].stocks })
-              .eq('id', _checkoutItem.id);
-          }
-        } catch (err) {
-          console.warn('Supabase transaction insert fallback:', err);
-        }
-
-        // Record local transaction
         let txns = [];
         try { txns = JSON.parse(localStorage.getItem('inv_transactions') || '[]'); } catch (e) {}
         txns.unshift({
@@ -1021,28 +1026,72 @@ const initInventory = async () => {
           productId: _checkoutItem.id,
           productName: _checkoutItem.name,
           batch: _checkoutItem.batch || '',
+          customer: soldToVal,
+          soldTo: soldToVal,
           qty,
           unitPrice: price,
           subtotal,
           discount: discountAmt,
           charge: chargeAmt,
+          partial: partialAmt,
           total,
           type: 'sale',
           paymentStatus,
-          payMode: _payMode
+          payMode: _payMode,
+          notes
         });
         localStorage.setItem('inv_transactions', JSON.stringify(txns));
 
+        // 3. Instant UI feedback & Modal close (0ms delay)
         const itemName = _checkoutItem.name;
-        const modeLabel = isCredit ? 'Credit' : 'Cash';
-        confirmBtn.disabled = false;
-        confirmBtn.innerHTML = '<i class="fa-solid fa-check"></i> Submit Checkout';
+        const checkoutItemId = _checkoutItem.id;
+        const checkoutItemBatch = _checkoutItem.batch || '';
+        const modeLabel = isCredit ? 'Credit' : isPartial ? 'Partial' : 'Cash';
 
         closeCheckoutModal();
         renderSidebarStocks();
         renderTable();
         updateSummaryCards();
         showToast(`Checkout done! ${itemName} ×${qty} — ${fmtPeso(total)} (${modeLabel})`);
+
+        // 4. Non-blocking background sync to Supabase
+        (async () => {
+          try {
+            const isStkLocalId = String(checkoutItemId).startsWith('stk_');
+            const txnPromise = supabase
+              .from('transactions')
+              .insert([{
+                type: 'sale',
+                payment_status: paymentStatus,
+                subtotal,
+                discount: discountAmt,
+                total,
+                notes
+              }])
+              .select()
+              .single();
+
+            const stockPromise = (!isStkLocalId && idx !== -1)
+              ? supabase.from('stock_items').update({ quantity: all[idx].stocks }).eq('id', checkoutItemId)
+              : Promise.resolve();
+
+            const [{ data: txn, error: txnErr }] = await Promise.all([txnPromise, stockPromise]);
+
+            if (txn && !txnErr) {
+              await supabase.from('transaction_items').insert([{
+                transaction_id: txn.id,
+                stock_item_id: isStkLocalId ? null : checkoutItemId,
+                product_name: itemName,
+                batch: checkoutItemBatch,
+                unit_price: price,
+                quantity: qty,
+                item_discount: discountAmt
+              }]);
+            }
+          } catch (err) {
+            console.warn('Supabase checkout background sync:', err);
+          }
+        })();
       });
     }
 
