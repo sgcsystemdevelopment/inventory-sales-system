@@ -7,8 +7,31 @@
 import { supabase } from './supabaseClient.js';
 
 let _checkoutItem = null;
-let _payMode = 'cash'; // 'cash' | 'credit'
+let _payMode = 'cash'; // 'cash' | 'credit' | 'partial'
 let _onCheckoutSuccessCallback = null;
+let _isCheckingOut = false;
+
+export function cleanLocalTxns() {
+  try {
+    const raw = localStorage.getItem('inv_transactions');
+    if (!raw) return;
+    const list = JSON.parse(raw);
+    if (!Array.isArray(list) || list.length <= 1) return;
+    const seen = new Set();
+    const deduped = [];
+    for (const item of list) {
+      const minute = item.date ? item.date.slice(0, 16) : '';
+      const key = `${minute}_${item.total}_${item.paymentStatus}_${item.productName || ''}_${item.notes || ''}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        deduped.push(item);
+      }
+    }
+    if (deduped.length !== list.length) {
+      localStorage.setItem('inv_transactions', JSON.stringify(deduped));
+    }
+  } catch(e) {}
+}
 
 const currency = (val) =>
   '₱' + Number(val || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -298,7 +321,10 @@ export function setupCheckoutModalEvents(onSuccess = null) {
 
   if (confirmBtn) {
     confirmBtn.onclick = async () => {
-      if (!_checkoutItem) return;
+      if (!_checkoutItem || _isCheckingOut) return;
+      _isCheckingOut = true;
+      setTimeout(() => { _isCheckingOut = false; }, 800);
+
       const qtyInp = document.getElementById('coQtyInput');
       const qty = parseInt(qtyInp ? qtyInp.value : 1) || 1;
       const price = Number(_checkoutItem.price) || 0;
@@ -332,6 +358,7 @@ export function setupCheckoutModalEvents(onSuccess = null) {
       const currentStock = Number(_checkoutItem.stocks) || 0;
       if (qty > currentStock) {
         showGlobalToast(`Cannot checkout ${qty} units. Only ${currentStock} in stock.`, true);
+        _isCheckingOut = false;
         return;
       }
 
@@ -345,6 +372,7 @@ export function setupCheckoutModalEvents(onSuccess = null) {
       }
 
       // 2. Instant local transaction log
+      const localTxnId = Date.now();
       const soldToVal = (document.getElementById('coSoldToInput')?.value || '').trim();
       const customerNote = soldToVal ? ` | Sold to: ${soldToVal}` : '';
       const notes = (isCredit 
@@ -356,7 +384,7 @@ export function setupCheckoutModalEvents(onSuccess = null) {
       let txns = [];
       try { txns = JSON.parse(localStorage.getItem('inv_transactions') || '[]'); } catch (e) {}
       txns.unshift({
-        id: Date.now(),
+        id: localTxnId,
         date: new Date().toISOString(),
         productId: _checkoutItem.id,
         productName: _checkoutItem.name,
@@ -415,6 +443,17 @@ export function setupCheckoutModalEvents(onSuccess = null) {
           const [{ data: txn, error: txnErr }] = await Promise.all([txnPromise, stockPromise]);
 
           if (txn && !txnErr) {
+            // Update local transaction with remote Supabase ID & ref to prevent duplicate inputs
+            try {
+              let curTxns = JSON.parse(localStorage.getItem('inv_transactions') || '[]');
+              const tIdx = curTxns.findIndex(t => String(t.id) === String(localTxnId));
+              if (tIdx !== -1) {
+                curTxns[tIdx].supabaseId = txn.id;
+                curTxns[tIdx].ref = txn.reference_no;
+                localStorage.setItem('inv_transactions', JSON.stringify(curTxns));
+              }
+            } catch(e) {}
+
             await supabase.from('transaction_items').insert([{
               transaction_id: txn.id,
               stock_item_id: isStkLocalId ? null : checkoutItemId,

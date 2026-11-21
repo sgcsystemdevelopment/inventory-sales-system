@@ -757,8 +757,11 @@ const initExpenses = async () => {
     if (coPartialInp) coPartialInp.addEventListener('input', updateCheckoutSummary);
 
     if (coConfirmBtn) {
+      let _isCheckingOut = false;
       coConfirmBtn.addEventListener('click', async () => {
-        if (!_checkoutItem) return;
+        if (!_checkoutItem || _isCheckingOut) return;
+        _isCheckingOut = true;
+        setTimeout(() => { _isCheckingOut = false; }, 800);
         const qty       = parseInt(coQtyInp.value) || 1;
         const price     = Number(_checkoutItem.price) || 0;
         const subtotal  = qty * price;
@@ -803,10 +806,11 @@ const initExpenses = async () => {
           ? `Partial Sale (Paid: ₱${partialAmt.toFixed(2)}, Remaining Balance: ₱${total.toFixed(2)})`
           : (discountAmt > 0 ? `Cash Sale (Discount: ₱${discountAmt.toFixed(2)})` : 'Cash Sale')) + customerNote;
 
+        const localTxnId = Date.now();
         let txns = [];
         try { txns = JSON.parse(localStorage.getItem('inv_transactions') || '[]'); } catch(e) {}
         txns.unshift({
-          id: Date.now(),
+          id: localTxnId,
           date: new Date().toISOString(),
           productId: _checkoutItem.id,
           productName: _checkoutItem.name,
@@ -854,6 +858,17 @@ const initExpenses = async () => {
             const [{ data: txn, error: txnErr }] = await Promise.all([txnPromise, stockPromise]);
 
             if (txn && !txnErr) {
+              // Update local transaction with remote Supabase ID & ref to prevent duplicate inputs
+              try {
+                let curTxns = JSON.parse(localStorage.getItem('inv_transactions') || '[]');
+                const tIdx = curTxns.findIndex(t => String(t.id) === String(localTxnId));
+                if (tIdx !== -1) {
+                  curTxns[tIdx].supabaseId = txn.id;
+                  curTxns[tIdx].ref = txn.reference_no;
+                  localStorage.setItem('inv_transactions', JSON.stringify(curTxns));
+                }
+              } catch(e) {}
+
               await supabase.from('transaction_items').insert([{
                 transaction_id: txn.id,
                 stock_item_id: isStkLocalId ? null : checkoutItemId,
@@ -868,7 +883,6 @@ const initExpenses = async () => {
             console.warn('Supabase checkout background sync:', err);
           }
         })();
-        showToast(`Checkout done! ${itemName} ×${qty} — ${currencyFmt(total)} (${modeLabel})`);
       });
     }
 

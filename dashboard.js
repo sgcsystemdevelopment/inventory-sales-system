@@ -5,6 +5,7 @@
  */
 
 import { supabase } from './supabaseClient.js';
+import { cleanLocalTxns } from './checkoutManager.js';
 
 const initDashboard = async () => {
 
@@ -405,8 +406,11 @@ const initDashboard = async () => {
     }
 
     if (confirmBtn) {
+      let _isCheckingOut = false;
       confirmBtn.addEventListener('click', async () => {
-        if (!_checkoutItem) return;
+        if (!_checkoutItem || _isCheckingOut) return;
+        _isCheckingOut = true;
+        setTimeout(() => { _isCheckingOut = false; }, 800);
         const qty = parseInt(qtyInp.value) || 1;
         const price = Number(_checkoutItem.price) || 0;
         const subtotal = qty * price;
@@ -457,10 +461,11 @@ const initDashboard = async () => {
           ? `Partial Sale (Paid: ₱${partialAmt.toFixed(2)}, Remaining Balance: ₱${total.toFixed(2)})`
           : (discountAmt > 0 ? `Cash Sale (Discount: ₱${discountAmt.toFixed(2)})` : 'Cash Sale')) + customerNote;
 
+        const localTxnId = Date.now();
         let txns = [];
         try { txns = JSON.parse(localStorage.getItem('inv_transactions') || '[]'); } catch (e) {}
         txns.unshift({
-          id: Date.now(),
+          id: localTxnId,
           date: new Date().toISOString(),
           productId: _checkoutItem.id,
           productName: _checkoutItem.name,
@@ -516,6 +521,17 @@ const initDashboard = async () => {
             const [{ data: txn, error: txnErr }] = await Promise.all([txnPromise, stockPromise]);
 
             if (txn && !txnErr) {
+              // Update local transaction with remote Supabase ID & ref to prevent duplicate inputs
+              try {
+                let curTxns = JSON.parse(localStorage.getItem('inv_transactions') || '[]');
+                const tIdx = curTxns.findIndex(t => String(t.id) === String(localTxnId));
+                if (tIdx !== -1) {
+                  curTxns[tIdx].supabaseId = txn.id;
+                  curTxns[tIdx].ref = txn.reference_no;
+                  localStorage.setItem('inv_transactions', JSON.stringify(curTxns));
+                }
+              } catch(e) {}
+
               await supabase.from('transaction_items').insert([{
                 transaction_id: txn.id,
                 stock_item_id: isStkLocalId ? null : checkoutItemId,
@@ -568,16 +584,25 @@ const initDashboard = async () => {
       console.warn('Expenses fetch fallback:', e);
     }
 
+    // Deduplicate local transactions first
+    cleanLocalTxns();
+
     // Always merge any recent/local transactions not yet returned by Supabase
     try {
       const local = JSON.parse(localStorage.getItem('inv_transactions') || '[]');
       if (Array.isArray(local) && local.length > 0) {
         local.forEach(t => {
-          const exists = txns.some(remote => String(remote.id) === String(t.id));
+          const exists = txns.some(remote =>
+            String(remote.id) === String(t.id) ||
+            (t.supabaseId && String(remote.id) === String(t.supabaseId)) ||
+            (t.ref && remote.reference_no && remote.reference_no === t.ref)
+          );
           if (!exists) {
             txns.push({
               id: t.id,
               reference_no: `TXN-${String(t.id).slice(-6)}`,
+              customer: t.customer || t.soldTo || '',
+              soldTo: t.soldTo || t.customer || '',
               total: t.total,
               discount: t.discount || 0,
               partial: t.partial || 0,
@@ -698,19 +723,28 @@ const initDashboard = async () => {
     const cashOnHand = totalPaid - totalExpense;
 
     // ── MAP TO TABLE TRANSACTIONS ───────────────────────────────────────────
-    const mappedTxns = filteredTxns.map(t => ({
-      type: 'sale',
-      ref: t.reference_no || `TXN-${String(t.id).slice(0, 6)}`,
-      description: t.notes || 'Counter Sale',
-      date: t.created_at ? t.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10),
-      amount: Number(t.total) || 0,
-      discount: Number(t.discount) || 0,
-      status: t.payment_status || 'paid'
-    }));
+    const mappedTxns = filteredTxns.map(t => {
+      let soldTo = t.customer || t.soldTo || '';
+      if (!soldTo && t.notes) {
+        const m = t.notes.match(/Sold to:\s*([^|]+)/i);
+        if (m) soldTo = m[1].trim();
+      }
+      return {
+        type: 'sale',
+        ref: t.reference_no || `TXN-${String(t.id).slice(0, 6)}`,
+        soldTo: soldTo || '—',
+        description: t.notes ? t.notes.replace(/\|\s*Sold to:.*$/i, '').trim() : 'Counter Sale',
+        date: t.created_at ? t.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10),
+        amount: Number(t.total) || 0,
+        discount: Number(t.discount) || 0,
+        status: t.payment_status || 'paid'
+      };
+    });
 
     const mappedExpenses = filteredExpenses.map(e => ({
       type: 'expense',
       ref: `EXP-${String(e.id).slice(0, 6)}`,
+      soldTo: '—',
       description: e.title || e.category || 'Expense',
       date: e.expense_date || (e.created_at ? e.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10)),
       amount: Number(e.amount) || 0,
@@ -1122,7 +1156,7 @@ const initDashboard = async () => {
       return `
       <tr>
         <td><span class="badge ${tb.cls}" style="display:inline-flex;align-items:center;gap:5px;font-size:0.72rem;"><i class="fa-solid ${tb.icon}" style="font-size:0.65rem;"></i>${tb.label}</span></td>
-        <td style="font-weight:700; color:var(--accent);">${t.ref}</td>
+        <td style="font-weight:600; color:var(--text-primary);">${t.soldTo || '—'}</td>
         <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${t.description || t.customer || '—'}</td>
         <td>${t.date}</td>
         <td style="font-weight:700;">${currency(t.amount)}</td>
@@ -1164,6 +1198,7 @@ const initDashboard = async () => {
     if (!q) return allTransactions;
     return allTransactions.filter(t =>
       (t.ref || '').toLowerCase().includes(q) ||
+      (t.soldTo || '').toLowerCase().includes(q) ||
       (t.description || t.customer || '').toLowerCase().includes(q) ||
       (t.status || '').toLowerCase().includes(q)
     );

@@ -5,7 +5,7 @@
  */
 
 import { supabase } from './supabaseClient.js';
-import { renderGlobalSidebarStocks, setupCheckoutModalEvents } from './checkoutManager.js';
+import { renderGlobalSidebarStocks, setupCheckoutModalEvents, cleanLocalTxns } from './checkoutManager.js';
 
 const initTransactions = async () => {
 
@@ -219,11 +219,17 @@ const initTransactions = async () => {
       .map(t => {
         const items = Array.isArray(t.transaction_items) ? t.transaction_items : [];
         const itemDesc = items.map(it => `${it.product_name || 'Item'} ×${it.quantity || 1}`).join(', ');
+        let soldTo = t.customer || t.soldTo || '';
+        if (!soldTo && t.notes) {
+          const m = t.notes.match(/Sold to:\s*([^|]+)/i);
+          if (m) soldTo = m[1].trim();
+        }
         return {
           id: t.id,
           type: 'sale',
           ref: t.reference_no || `TXN-${String(t.id).slice(0, 6).toUpperCase()}`,
-          description: itemDesc || t.notes || 'Counter Sale',
+          soldTo: soldTo || '—',
+          description: itemDesc || (t.notes ? t.notes.replace(/\|\s*Sold to:.*$/i, '').trim() : '') || 'Counter Sale',
           amount: Number(t.total) || 0,
           date: t.created_at ? t.created_at.slice(0, 10) : '',
           status: t.payment_status || 'paid',
@@ -238,6 +244,7 @@ const initTransactions = async () => {
         id: e.id,
         type: 'expense',
         ref: `EXP-${String(e.id).slice(0, 6).toUpperCase()}`,
+        soldTo: '—',
         description: e.title || e.category || 'Expense',
         amount: Number(e.amount) || 0,
         date: e.expense_date || (e.created_at ? e.created_at.slice(0, 10) : ''),
@@ -247,17 +254,31 @@ const initTransactions = async () => {
       }))
       .filter(e => !isDeleted(e));
 
+    // Deduplicate local transactions first
+    cleanLocalTxns();
+
     // Merge any local transactions not yet in Supabase
     let localTxns = [];
     try { localTxns = JSON.parse(localStorage.getItem('inv_transactions') || '[]'); } catch(e) {}
     localTxns.forEach(t => {
       if (isDeleted(t)) return;
-      const exists = mappedTxns.some(m => String(m.id) === String(t.id) || (t.ref && m.ref === t.ref));
+      const exists = mappedTxns.some(m =>
+        String(m.id) === String(t.id) ||
+        (t.supabaseId && String(m.id) === String(t.supabaseId)) ||
+        (t.ref && m.ref === t.ref) ||
+        (m._raw && m._raw.reference_no && t.ref && m._raw.reference_no === t.ref)
+      );
       if (!exists) {
+        let soldTo = t.soldTo || t.customer || '';
+        if (!soldTo && t.notes) {
+          const m = t.notes.match(/Sold to:\s*([^|]+)/i);
+          if (m) soldTo = m[1].trim();
+        }
         mappedTxns.push({
           id: t.id,
           type: 'sale',
           ref: `TXN-${String(t.id).slice(-5)}`,
+          soldTo: soldTo || '—',
           description: `${t.productName || ''} ×${t.qty || ''}`.trim() || 'Counter Sale',
           amount: Number(t.total) || 0,
           date: t.date ? t.date.slice(0, 10) : '',
@@ -282,6 +303,7 @@ const initTransactions = async () => {
           id: e.id,
           type: 'expense',
           ref: `EXP-${String(e.id).slice(-5)}`,
+          soldTo: '—',
           description: e.title || e.category || 'Expense',
           amount: Number(e.amount) || 0,
           date: e.date || '',
@@ -326,7 +348,7 @@ const initTransactions = async () => {
       if (from && r.date < from) return false;
       if (to   && r.date > to)   return false;
       if (q) {
-        const hay = `${r.ref} ${r.description} ${r.status}`.toLowerCase();
+        const hay = `${r.ref} ${r.soldTo || ''} ${r.description} ${r.status}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -363,7 +385,7 @@ const initTransactions = async () => {
       const statusClass = r.status === 'paid' ? 'paid' : r.status === 'unpaid' ? 'unpaid' : r.status === 'recorded' ? 'discount' : 'paid';
       return `<tr class="txn-row" data-ref="${r.ref}">
         <td><span class="type-badge ${tb.cls}"><i class="fa-solid ${tb.icon}"></i>${tb.label}</span></td>
-        <td style="font-weight:700;color:var(--accent);">${r.ref}</td>
+        <td style="font-weight:600;color:var(--text-primary);">${r.soldTo || '—'}</td>
         <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.description || '—'}</td>
         <td>${formatDate(r.date)}</td>
         <td style="text-align:right;font-weight:700;">${currency(r.amount)}</td>
@@ -434,6 +456,7 @@ const initTransactions = async () => {
 
     const rows = [
       ['Type',        record.type === 'expense' ? 'Expense' : 'Sale'],
+      ['Sold To',     record.soldTo || '—'],
       ['Reference',   record.ref],
       ['Description', record.description || '—'],
       ['Date',        formatDate(record.date)],
@@ -825,9 +848,9 @@ const initTransactions = async () => {
   if (btnExportCsv) {
     btnExportCsv.addEventListener('click', () => {
       const filtered = getFiltered();
-      const header = 'Type,Reference,Description,Date,Amount,Status';
+      const header = 'Type,Sold To,Reference,Description,Date,Amount,Status';
       const rows = filtered.map(r =>
-        `"${r.type}","${r.ref}","${(r.description || '').replace(/"/g,'""')}","${r.date}","${r.amount}","${r.status}"`
+        `"${r.type}","${(r.soldTo || '').replace(/"/g,'""')}","${r.ref}","${(r.description || '').replace(/"/g,'""')}","${r.date}","${r.amount}","${r.status}"`
       );
       const csv = [header, ...rows].join('\n');
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
