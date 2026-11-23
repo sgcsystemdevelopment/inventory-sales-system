@@ -146,6 +146,7 @@
             <option value="all">All Types</option>
             <option value="sale">Sale</option>
             <option value="expense">Expense</option>
+            <option value="unpaid">Unpaid</option>
           </select>
           <button class="btn-export-sm" id="btnExportCsv">
             <i class="fa-solid fa-file-csv"></i> CSV
@@ -183,6 +184,10 @@
 
         <div class="table-pagination">
           <span id="txnTableInfo">Showing 0 of 0 records</span>
+          <div class="txn-subtotal-display" id="txnSubtotalContainer">
+            <span class="subtotal-label">Sub Total:</span>
+            <span class="subtotal-amount" id="txnSubtotalAmount">₱0.00</span>
+          </div>
           <div class="pagination-btns">
             <button class="page-btn" id="prevTxnPage" disabled><i class="fa-solid fa-chevron-left"></i></button>
             <span id="txnPageNum">1 / 1</span>

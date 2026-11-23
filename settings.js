@@ -314,6 +314,22 @@ const initSettings = () => {
     });
   }
 
+  const btnClearLocalStorage = document.getElementById('btnClearLocalStorage');
+  if (btnClearLocalStorage) {
+    btnClearLocalStorage.addEventListener('click', () => {
+      if (!window.confirm('Are you sure you want to clear all locally cached transactions, stocks, and offline data?')) return;
+      const keys = [
+        'inv_transactions',
+        'inv_deleted_txns',
+        'inv_stocks_data',
+        'inv_expenses_data'
+      ];
+      keys.forEach(k => localStorage.removeItem(k));
+      showToast('Local storage cache cleared successfully!');
+      setTimeout(() => location.reload(), 900);
+    });
+  }
+
   loadSettings();
 };
 

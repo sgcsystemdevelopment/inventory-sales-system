@@ -29,6 +29,7 @@ const initTransactions = async () => {
   const txnPageNum      = document.getElementById('txnPageNum');
   const prevTxnPage     = document.getElementById('prevTxnPage');
   const nextTxnPage     = document.getElementById('nextTxnPage');
+  const txnSubtotalAmount = document.getElementById('txnSubtotalAmount');
   const txnSearch       = document.getElementById('txnSearch');
   const txnDateFrom     = document.getElementById('txnDateFrom');
   const txnDateTo       = document.getElementById('txnDateTo');
@@ -152,8 +153,11 @@ const initTransactions = async () => {
   };
 
   // ── CURRENCY & DATE ───────────────────────────────────────────────────────
-  const currency = (val) =>
-    '₱' + Number(val || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const currency = (val) => {
+    const num = Number(val || 0);
+    const formatted = Math.abs(num).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return (num < 0 ? '-₱' : '₱') + formatted;
+  };
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '—';
@@ -344,7 +348,15 @@ const initTransactions = async () => {
     const type = txnTypeFilter? txnTypeFilter.value : 'all';
 
     return allRecords.filter(r => {
-      if (type !== 'all' && r.type !== type) return false;
+      if (type !== 'all') {
+        if (type === 'unpaid') {
+          if (String(r.status || '').toLowerCase() !== 'unpaid') return false;
+        } else if (type === 'paid') {
+          if (String(r.status || '').toLowerCase() !== 'paid') return false;
+        } else if (r.type !== type) {
+          return false;
+        }
+      }
       if (from && r.date < from) return false;
       if (to   && r.date > to)   return false;
       if (q) {
@@ -377,6 +389,7 @@ const initTransactions = async () => {
       txnPageNum.textContent = '1 / 1';
       prevTxnPage.disabled = true;
       nextTxnPage.disabled = true;
+      if (txnSubtotalAmount) txnSubtotalAmount.textContent = currency(0);
       return;
     }
 
@@ -410,6 +423,23 @@ const initTransactions = async () => {
     txnPageNum.textContent = `${currentPage} / ${totalPages}`;
     prevTxnPage.disabled = currentPage === 1;
     nextTxnPage.disabled = currentPage >= totalPages;
+
+    // Subtotal of current filtered records
+    const selectedType = txnTypeFilter ? txnTypeFilter.value : 'all';
+    let subtotal = 0;
+    if (selectedType === 'expense') {
+      subtotal = filtered.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+    } else if (selectedType === 'sale' || selectedType === 'unpaid') {
+      subtotal = filtered.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+    } else {
+      const salesSum = filtered.filter(r => r.type === 'sale').reduce((s, r) => s + (Number(r.amount) || 0), 0);
+      const expSum = filtered.filter(r => r.type === 'expense').reduce((s, r) => s + (Number(r.amount) || 0), 0);
+      subtotal = expSum > 0 ? (salesSum - expSum) : salesSum;
+    }
+    if (txnSubtotalAmount) {
+      txnSubtotalAmount.textContent = currency(subtotal);
+      txnSubtotalAmount.style.color = subtotal < 0 ? '#ef4444' : '';
+    }
 
     // Row click → detail modal
     txnTableBody.querySelectorAll('.txn-row').forEach((row, i) => {
