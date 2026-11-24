@@ -163,7 +163,22 @@ const initTransactions = async () => {
     if (!dateStr) return '—';
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+    const dFmt = d.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+    const hasTime = String(dateStr).includes('T') || String(dateStr).includes(':');
+    if (!hasTime) return dFmt;
+    const tFmt = d.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    return `<div style="font-weight:600;color:var(--text-primary);line-height:1.2;">${dFmt}</div><div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;"><i class="fa-regular fa-clock" style="font-size:0.68rem;margin-right:3px;"></i>${tFmt}</div>`;
+  };
+
+  const formatDateTimePlain = (dateStr) => {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const dFmt = d.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+    const hasTime = String(dateStr).includes('T') || String(dateStr).includes(':');
+    if (!hasTime) return dFmt;
+    const tFmt = d.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    return `${dFmt}, ${tFmt}`;
   };
 
   // ── DATA ──────────────────────────────────────────────────────────────────
@@ -219,7 +234,7 @@ const initTransactions = async () => {
       return false;
     };
 
-    const mappedTxns = txns
+    let mappedTxns = txns
       .map(t => {
         const items = Array.isArray(t.transaction_items) ? t.transaction_items : [];
         const itemDesc = items.map(it => `${it.product_name || 'Item'} ×${it.quantity || 1}`).join(', ');
@@ -235,7 +250,7 @@ const initTransactions = async () => {
           soldTo: soldTo || '—',
           description: itemDesc || (t.notes ? t.notes.replace(/\|\s*Sold to:.*$/i, '').trim() : '') || 'Counter Sale',
           amount: Number(t.total) || 0,
-          date: t.created_at ? t.created_at.slice(0, 10) : '',
+          date: t.created_at || new Date().toISOString(),
           status: t.payment_status || 'paid',
           items: items,
           _raw: t
@@ -251,7 +266,7 @@ const initTransactions = async () => {
         soldTo: '—',
         description: e.title || e.category || 'Expense',
         amount: Number(e.amount) || 0,
-        date: e.expense_date || (e.created_at ? e.created_at.slice(0, 10) : ''),
+        date: e.created_at || e.expense_date || new Date().toISOString(),
         status: 'recorded',
         items: [],
         _raw: e
@@ -261,17 +276,48 @@ const initTransactions = async () => {
     // Deduplicate local transactions first
     cleanLocalTxns();
 
+    // Deduplicate any accidental duplicate rows from Supabase
+    const seenTxnIds = new Set();
+    mappedTxns = mappedTxns.filter(t => {
+      const idKey = String(t.id);
+      if (seenTxnIds.has(idKey)) return false;
+      seenTxnIds.add(idKey);
+      return true;
+    });
+
     // Merge any local transactions not yet in Supabase
     let localTxns = [];
     try { localTxns = JSON.parse(localStorage.getItem('inv_transactions') || '[]'); } catch(e) {}
+    let localChanged = false;
     localTxns.forEach(t => {
       if (isDeleted(t)) return;
-      const exists = mappedTxns.some(m =>
-        String(m.id) === String(t.id) ||
-        (t.supabaseId && String(m.id) === String(t.supabaseId)) ||
-        (t.ref && m.ref === t.ref) ||
-        (m._raw && m._raw.reference_no && t.ref && m._raw.reference_no === t.ref)
-      );
+      const exists = mappedTxns.some(m => {
+        // 1. Direct ID or supabaseId match
+        if (String(m.id) === String(t.id)) return true;
+        if (t.supabaseId && String(m.id) === String(t.supabaseId)) return true;
+        // 2. Reference match (exact or against _raw.reference_no)
+        if (t.ref && (m.ref === t.ref || (m._raw && m._raw.reference_no === t.ref))) return true;
+
+        // 3. Robust Semantic match: within 5 minutes, same total, same payment status, same notes/customer
+        const mDate = new Date(m._raw?.created_at || m.date || 0).getTime();
+        const tDate = new Date(t.date || 0).getTime();
+        const timeDiff = Math.abs(mDate - tDate);
+        const sameTotal = Math.abs((Number(m.amount) || 0) - (Number(t.total) || 0)) < 0.01;
+        const sameStatus = (m.status || m._raw?.payment_status) === (t.paymentStatus || 'paid');
+        const sameNotes = (m._raw?.notes || m.description || '').trim() === (t.notes || '').trim();
+        const sameCustomer = (m.soldTo && (t.soldTo || t.customer) && m.soldTo === (t.soldTo || t.customer));
+
+        if (sameTotal && sameStatus && timeDiff < 300000 && (sameNotes || sameCustomer)) {
+          if (!t.supabaseId || !t.ref) {
+            t.supabaseId = m.id;
+            t.ref = m.ref || m._raw?.reference_no;
+            localChanged = true;
+          }
+          return true;
+        }
+        return false;
+      });
+
       if (!exists) {
         let soldTo = t.soldTo || t.customer || '';
         if (!soldTo && t.notes) {
@@ -281,11 +327,11 @@ const initTransactions = async () => {
         mappedTxns.push({
           id: t.id,
           type: 'sale',
-          ref: `TXN-${String(t.id).slice(-5)}`,
+          ref: t.ref || `TXN-${String(t.id).slice(-5)}`,
           soldTo: soldTo || '—',
           description: `${t.productName || ''} ×${t.qty || ''}`.trim() || 'Counter Sale',
           amount: Number(t.total) || 0,
-          date: t.date ? t.date.slice(0, 10) : '',
+          date: t.date || new Date().toISOString(),
           status: t.paymentStatus || 'paid',
           items: [{
             stock_item_id: t.productId,
@@ -298,6 +344,10 @@ const initTransactions = async () => {
         });
       }
     });
+
+    if (localChanged) {
+      try { localStorage.setItem('inv_transactions', JSON.stringify(localTxns)); } catch(e) {}
+    }
     if (!expenses.length) {
       let localExp = [];
       try { localExp = JSON.parse(localStorage.getItem('inv_expenses_data') || '[]'); } catch(e) {}
@@ -310,7 +360,7 @@ const initTransactions = async () => {
           soldTo: '—',
           description: e.title || e.category || 'Expense',
           amount: Number(e.amount) || 0,
-          date: e.date || '',
+          date: e.date || new Date().toISOString(),
           status: 'recorded',
           items: [],
           _raw: e
@@ -357,8 +407,9 @@ const initTransactions = async () => {
           return false;
         }
       }
-      if (from && r.date < from) return false;
-      if (to   && r.date > to)   return false;
+      const recYMD = r.date ? r.date.slice(0, 10) : '';
+      if (from && recYMD < from) return false;
+      if (to   && recYMD > to)   return false;
       if (q) {
         const hay = `${r.ref} ${r.soldTo || ''} ${r.description} ${r.status}`.toLowerCase();
         if (!hay.includes(q)) return false;
@@ -489,7 +540,7 @@ const initTransactions = async () => {
       ['Sold To',     record.soldTo || '—'],
       ['Reference',   record.ref],
       ['Description', record.description || '—'],
-      ['Date',        formatDate(record.date)],
+      ['Date & Time', formatDateTimePlain(record.date)],
       ['Amount',      currency(record.amount)],
       ['Status',      (record.status || '—').charAt(0).toUpperCase() + (record.status || '').slice(1)],
     ];
@@ -684,7 +735,7 @@ const initTransactions = async () => {
           const rawTxns = localStorage.getItem('inv_transactions');
           if (rawTxns) {
             let tArr = JSON.parse(rawTxns);
-            const tIdx = tArr.findIndex(t => String(t.id) === String(id));
+            const tIdx = tArr.findIndex(t => String(t.id) === String(id) || (t.supabaseId && String(t.supabaseId) === String(id)) || (record.ref && t.ref === record.ref));
             if (tIdx !== -1) {
               tArr[tIdx].productName = prodName;
               tArr[tIdx].qty = newQty;
@@ -737,13 +788,81 @@ const initTransactions = async () => {
     });
   }
 
+  function showDeleteConfirmation({ title = "Head's up!", message = "Are you sure do you want to delete?", details = "" } = {}) {
+    return new Promise((resolve) => {
+      const modal = document.getElementById('deleteConfirmModal');
+      const overlay = document.getElementById('deleteModalOverlay');
+      const titleEl = document.getElementById('deleteModalTitle');
+      const msgEl = document.getElementById('deleteModalMsg');
+      const detailsEl = document.getElementById('deleteModalDetails');
+      const btnYes = document.getElementById('btnConfirmDelete');
+      const btnNo = document.getElementById('btnCancelDelete');
+
+      if (!modal || !btnYes || !btnNo) {
+        return resolve(window.confirm(`${title}\n\n${message}`));
+      }
+
+      if (titleEl) titleEl.textContent = title;
+      if (msgEl) msgEl.textContent = message;
+      if (detailsEl) {
+        if (details) {
+          detailsEl.innerHTML = details;
+          detailsEl.style.display = 'block';
+        } else {
+          detailsEl.style.display = 'none';
+        }
+      }
+
+      const cleanup = () => {
+        modal.classList.remove('active');
+        btnYes.removeEventListener('click', onYes);
+        btnNo.removeEventListener('click', onNo);
+        if (overlay) overlay.removeEventListener('click', onNo);
+        document.removeEventListener('keydown', onKey);
+      };
+
+      const onYes = () => {
+        cleanup();
+        resolve(true);
+      };
+
+      const onNo = () => {
+        cleanup();
+        resolve(false);
+      };
+
+      const onKey = (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('active')) onNo();
+      };
+
+      btnYes.addEventListener('click', onYes);
+      btnNo.addEventListener('click', onNo);
+      if (overlay) overlay.addEventListener('click', onNo);
+      document.addEventListener('keydown', onKey);
+
+      modal.classList.add('active');
+    });
+  }
+
   async function handleDeleteTransaction(record) {
     const isSale = record.type === 'sale';
-    const confirmMsg = isSale
-      ? `Are you sure you want to delete this checkout transaction?\n\nReference: ${record.ref}\nDescription: ${record.description}\nAmount: ${currency(record.amount)}\n\n⚠️ Deleting this will restore the checked-out stock back to inventory.`
-      : `Are you sure you want to delete this expense record?\n\nReference: ${record.ref}\nDescription: ${record.description}\nAmount: ${currency(record.amount)}`;
+    const detailHtml = isSale
+      ? `<div><strong>Reference:</strong> ${record.ref}</div>
+         <div><strong>Description:</strong> ${record.description || '—'}</div>
+         <div><strong>Amount:</strong> ${currency(record.amount)}</div>
+         <div style="margin-top:6px;color:#f59e0b;font-size:0.8rem;"><i class="fa-solid fa-triangle-exclamation"></i> Deleting will restore stock and remove record locally and in Supabase.</div>`
+      : `<div><strong>Reference:</strong> ${record.ref}</div>
+         <div><strong>Description:</strong> ${record.description || '—'}</div>
+         <div><strong>Amount:</strong> ${currency(record.amount)}</div>
+         <div style="margin-top:6px;color:#f59e0b;font-size:0.8rem;"><i class="fa-solid fa-triangle-exclamation"></i> Deleting will remove record locally and in Supabase.</div>`;
 
-    if (!window.confirm(confirmMsg)) return;
+    const confirmed = await showDeleteConfirmation({
+      title: "Head's up!",
+      message: "Are you sure do you want to delete?",
+      details: detailHtml
+    });
+
+    if (!confirmed) return;
 
     // 1. Mark as permanently deleted in persistent registry
     markRecordDeleted(record);
@@ -756,8 +875,10 @@ const initTransactions = async () => {
           let txnsArr = JSON.parse(rawTxns);
           txnsArr = txnsArr.filter(t => 
             String(t.id) !== String(record.id) &&
+            (!t.supabaseId || String(t.supabaseId) !== String(record.id)) &&
             (!record.ref || t.ref !== record.ref) &&
-            (!record._raw?.id || String(t.id) !== String(record._raw.id))
+            (!record._raw?.id || String(t.id) !== String(record._raw.id)) &&
+            (!record._raw?.id || !t.supabaseId || String(t.supabaseId) !== String(record._raw.id))
           );
           localStorage.setItem('inv_transactions', JSON.stringify(txnsArr));
         }
@@ -878,9 +999,9 @@ const initTransactions = async () => {
   if (btnExportCsv) {
     btnExportCsv.addEventListener('click', () => {
       const filtered = getFiltered();
-      const header = 'Type,Sold To,Reference,Description,Date,Amount,Status';
+      const header = 'Type,Sold To,Reference,Description,Date & Time,Amount,Status';
       const rows = filtered.map(r =>
-        `"${r.type}","${(r.soldTo || '').replace(/"/g,'""')}","${r.ref}","${(r.description || '').replace(/"/g,'""')}","${r.date}","${r.amount}","${r.status}"`
+        `"${r.type}","${(r.soldTo || '').replace(/"/g,'""')}","${r.ref}","${(r.description || '').replace(/"/g,'""')}","${formatDateTimePlain(r.date)}","${r.amount}","${r.status}"`
       );
       const csv = [header, ...rows].join('\n');
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });

@@ -373,6 +373,7 @@ export function setupCheckoutModalEvents(onSuccess = null) {
 
       // 2. Instant local transaction log
       const localTxnId = Date.now();
+      const localRef = 'TXN-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + Math.random().toString(36).substring(2, 8).toUpperCase();
       const soldToVal = (document.getElementById('coSoldToInput')?.value || '').trim();
       const customerNote = soldToVal ? ` | Sold to: ${soldToVal}` : '';
       const notes = (isCredit 
@@ -385,6 +386,7 @@ export function setupCheckoutModalEvents(onSuccess = null) {
       try { txns = JSON.parse(localStorage.getItem('inv_transactions') || '[]'); } catch (e) {}
       txns.unshift({
         id: localTxnId,
+        ref: localRef,
         date: new Date().toISOString(),
         productId: _checkoutItem.id,
         productName: _checkoutItem.name,
@@ -426,6 +428,7 @@ export function setupCheckoutModalEvents(onSuccess = null) {
           const txnPromise = supabase
             .from('transactions')
             .insert([{
+              reference_no: localRef,
               type: 'sale',
               payment_status: paymentStatus,
               subtotal,

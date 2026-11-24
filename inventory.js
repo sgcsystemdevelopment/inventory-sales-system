@@ -592,12 +592,80 @@ const initInventory = async () => {
     }
   };
 
+  function showDeleteConfirmation({ title = "Head's up!", message = "Are you sure do you want to delete?", details = "" } = {}) {
+    return new Promise((resolve) => {
+      const modal = document.getElementById('deleteConfirmModal');
+      const overlay = document.getElementById('deleteModalOverlay');
+      const titleEl = document.getElementById('deleteModalTitle');
+      const msgEl = document.getElementById('deleteModalMsg');
+      const detailsEl = document.getElementById('deleteModalDetails');
+      const btnYes = document.getElementById('btnConfirmDelete');
+      const btnNo = document.getElementById('btnCancelDelete');
+
+      if (!modal || !btnYes || !btnNo) {
+        return resolve(window.confirm(`${title}\n\n${message}`));
+      }
+
+      if (titleEl) titleEl.textContent = title;
+      if (msgEl) msgEl.textContent = message;
+      if (detailsEl) {
+        if (details) {
+          detailsEl.innerHTML = details;
+          detailsEl.style.display = 'block';
+        } else {
+          detailsEl.style.display = 'none';
+        }
+      }
+
+      const cleanup = () => {
+        modal.classList.remove('active');
+        btnYes.removeEventListener('click', onYes);
+        btnNo.removeEventListener('click', onNo);
+        if (overlay) overlay.removeEventListener('click', onNo);
+        document.removeEventListener('keydown', onKey);
+      };
+
+      const onYes = () => {
+        cleanup();
+        resolve(true);
+      };
+
+      const onNo = () => {
+        cleanup();
+        resolve(false);
+      };
+
+      const onKey = (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('active')) onNo();
+      };
+
+      btnYes.addEventListener('click', onYes);
+      btnNo.addEventListener('click', onNo);
+      if (overlay) overlay.addEventListener('click', onNo);
+      document.addEventListener('keydown', onKey);
+
+      modal.classList.add('active');
+    });
+  }
+
   window.handleDeleteStock = async (id) => {
     const stocks = getStocks();
     const found = stocks.find(s => String(s.id) === String(id));
     if (!found) return;
 
-    const confirmed = confirm(`Are you sure you want to remove this stock item?\n\nItem: ${found.name}\nBatch: ${found.batch}\nStocks: ${found.stocks}`);
+    const detailHtml = `
+      <div><strong>Item:</strong> ${found.name}</div>
+      <div><strong>Batch:</strong> ${found.batch || '—'}</div>
+      <div><strong>Current Stocks:</strong> ${found.stocks} units</div>
+      <div style="margin-top:6px;color:#ef4444;font-size:0.8rem;"><i class="fa-solid fa-triangle-exclamation"></i> Deleting will remove this stock item locally and in Supabase.</div>
+    `;
+
+    const confirmed = await showDeleteConfirmation({
+      title: "Head's up!",
+      message: "Are you sure do you want to delete?",
+      details: detailHtml
+    });
+
     if (confirmed) {
       const updated = stocks.filter(s => String(s.id) !== String(id));
       syncLocal(updated);
@@ -1022,10 +1090,12 @@ const initInventory = async () => {
           : (discountAmt > 0 ? `Cash Sale (Discount: ₱${discountAmt.toFixed(2)})` : 'Cash Sale')) + customerNote;
 
         const localTxnId = Date.now();
+        const localRef = 'TXN-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + Math.random().toString(36).substring(2, 8).toUpperCase();
         let txns = [];
         try { txns = JSON.parse(localStorage.getItem('inv_transactions') || '[]'); } catch (e) {}
         txns.unshift({
           id: localTxnId,
+          ref: localRef,
           date: new Date().toISOString(),
           productId: _checkoutItem.id,
           productName: _checkoutItem.name,
@@ -1065,6 +1135,7 @@ const initInventory = async () => {
             const txnPromise = supabase
               .from('transactions')
               .insert([{
+                reference_no: localRef,
                 type: 'sale',
                 payment_status: paymentStatus,
                 subtotal,

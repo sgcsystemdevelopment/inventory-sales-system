@@ -163,7 +163,7 @@
                 <th>Type</th>
                 <th>Sold To</th>
                 <th>Description</th>
-                <th>Date</th>
+                <th>Date &amp; Time</th>
                 <th style="text-align:right;">Amount</th>
                 <th style="text-align:center;width:95px;">Actions</th>
                 <th>Status</th>
@@ -456,6 +456,23 @@
         <button class="btn-modal-submit" id="confirmCheckoutBtn">
           <i class="fa-solid fa-check"></i> Submit Checkout
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DELETE CONFIRMATION MODAL -->
+  <div class="stock-modal" id="deleteConfirmModal" role="dialog" aria-modal="true">
+    <div class="stock-modal-overlay" id="deleteModalOverlay"></div>
+    <div class="stock-modal-card" style="max-width:440px; text-align:center; padding:2rem 1.75rem;">
+      <div style="width:60px; height:60px; border-radius:50%; background:rgba(239,68,68,0.12); color:#ef4444; display:flex; align-items:center; justify-content:center; font-size:1.75rem; margin:0 auto 1.25rem;">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+      </div>
+      <h3 style="font-size:1.35rem; font-weight:800; color:var(--text-primary); margin-bottom:0.5rem;" id="deleteModalTitle">Head's up!</h3>
+      <p style="font-size:0.95rem; color:var(--text-secondary); margin-bottom:1rem; line-height:1.5;" id="deleteModalMsg">Are you sure do you want to delete?</p>
+      <div id="deleteModalDetails" style="font-size:0.85rem; color:var(--text-muted); background:var(--bg-body); border:1px solid var(--border-color); border-radius:8px; padding:0.75rem; margin-bottom:1.5rem; text-align:left; display:none; line-height:1.6;"></div>
+      <div style="display:flex; gap:0.75rem; justify-content:center;">
+        <button type="button" class="btn-modal-cancel" id="btnCancelDelete" style="min-width:110px; font-weight:600;">No</button>
+        <button type="button" class="btn-modal-submit" id="btnConfirmDelete" style="min-width:110px; background:#ef4444; border-color:#ef4444; color:#fff; font-weight:700;">Yes</button>
       </div>
     </div>
   </div>

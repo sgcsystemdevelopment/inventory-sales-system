@@ -672,12 +672,80 @@ const initExpenses = async () => {
     if (found) openExpenseModal(found);
   };
 
+  function showDeleteConfirmation({ title = "Head's up!", message = "Are you sure do you want to delete?", details = "" } = {}) {
+    return new Promise((resolve) => {
+      const modal = document.getElementById('deleteConfirmModal');
+      const overlay = document.getElementById('deleteModalOverlay');
+      const titleEl = document.getElementById('deleteModalTitle');
+      const msgEl = document.getElementById('deleteModalMsg');
+      const detailsEl = document.getElementById('deleteModalDetails');
+      const btnYes = document.getElementById('btnConfirmDelete');
+      const btnNo = document.getElementById('btnCancelDelete');
+
+      if (!modal || !btnYes || !btnNo) {
+        return resolve(window.confirm(`${title}\n\n${message}`));
+      }
+
+      if (titleEl) titleEl.textContent = title;
+      if (msgEl) msgEl.textContent = message;
+      if (detailsEl) {
+        if (details) {
+          detailsEl.innerHTML = details;
+          detailsEl.style.display = 'block';
+        } else {
+          detailsEl.style.display = 'none';
+        }
+      }
+
+      const cleanup = () => {
+        modal.classList.remove('active');
+        btnYes.removeEventListener('click', onYes);
+        btnNo.removeEventListener('click', onNo);
+        if (overlay) overlay.removeEventListener('click', onNo);
+        document.removeEventListener('keydown', onKey);
+      };
+
+      const onYes = () => {
+        cleanup();
+        resolve(true);
+      };
+
+      const onNo = () => {
+        cleanup();
+        resolve(false);
+      };
+
+      const onKey = (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('active')) onNo();
+      };
+
+      btnYes.addEventListener('click', onYes);
+      btnNo.addEventListener('click', onNo);
+      if (overlay) overlay.addEventListener('click', onNo);
+      document.addEventListener('keydown', onKey);
+
+      modal.classList.add('active');
+    });
+  }
+
   window.handleDeleteExpense = async (id) => {
     const expenses = getExpenses();
     const found = expenses.find(e => String(e.id) === String(id));
     if (!found) return;
 
-    const confirmed = confirm(`Are you sure you want to delete this expense?\n\nTitle: ${found.title}\nAmount: ${currency(found.amount)}\nDate: ${formatDate(found.date)}`);
+    const detailHtml = `
+      <div><strong>Title:</strong> ${found.title}</div>
+      <div><strong>Amount:</strong> ${currency(found.amount)}</div>
+      <div><strong>Date:</strong> ${formatDate(found.date)}</div>
+      <div style="margin-top:6px;color:#ef4444;font-size:0.8rem;"><i class="fa-solid fa-triangle-exclamation"></i> Deleting will remove this expense record locally and in Supabase.</div>
+    `;
+
+    const confirmed = await showDeleteConfirmation({
+      title: "Head's up!",
+      message: "Are you sure do you want to delete?",
+      details: detailHtml
+    });
+
     if (confirmed) {
       const updated = expenses.filter(e => String(e.id) !== String(id));
       syncLocal(updated);
@@ -807,10 +875,12 @@ const initExpenses = async () => {
           : (discountAmt > 0 ? `Cash Sale (Discount: ₱${discountAmt.toFixed(2)})` : 'Cash Sale')) + customerNote;
 
         const localTxnId = Date.now();
+        const localRef = 'TXN-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + Math.random().toString(36).substring(2, 8).toUpperCase();
         let txns = [];
         try { txns = JSON.parse(localStorage.getItem('inv_transactions') || '[]'); } catch(e) {}
         txns.unshift({
           id: localTxnId,
+          ref: localRef,
           date: new Date().toISOString(),
           productId: _checkoutItem.id,
           productName: _checkoutItem.name,
@@ -847,7 +917,15 @@ const initExpenses = async () => {
             const isStkLocalId = String(checkoutItemId).startsWith('stk_');
             const txnPromise = supabase
               .from('transactions')
-              .insert([{ type: 'sale', payment_status: paymentStatus, subtotal, discount: discountAmt, total, notes }])
+              .insert([{
+                reference_no: localRef,
+                type: 'sale',
+                payment_status: paymentStatus,
+                subtotal,
+                discount: discountAmt,
+                total,
+                notes
+              }])
               .select()
               .single();
 

@@ -93,6 +93,17 @@ const initDashboard = async () => {
   const currency = (val) =>
     '₱' + Number(val || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+  const formatDateWithTime = (dateStr) => {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const dFmt = d.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+    const hasTime = String(dateStr).includes('T') || String(dateStr).includes(':');
+    if (!hasTime) return dFmt;
+    const tFmt = d.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    return `<div style="font-weight:600;color:var(--text-primary);line-height:1.2;">${dFmt}</div><div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;"><i class="fa-regular fa-clock" style="font-size:0.68rem;margin-right:3px;"></i>${tFmt}</div>`;
+  };
+
   function getLocalStocks() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
@@ -462,10 +473,12 @@ const initDashboard = async () => {
           : (discountAmt > 0 ? `Cash Sale (Discount: ₱${discountAmt.toFixed(2)})` : 'Cash Sale')) + customerNote;
 
         const localTxnId = Date.now();
+        const localRef = 'TXN-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + Math.random().toString(36).substring(2, 8).toUpperCase();
         let txns = [];
         try { txns = JSON.parse(localStorage.getItem('inv_transactions') || '[]'); } catch (e) {}
         txns.unshift({
           id: localTxnId,
+          ref: localRef,
           date: new Date().toISOString(),
           productId: _checkoutItem.id,
           productName: _checkoutItem.name,
@@ -504,6 +517,7 @@ const initDashboard = async () => {
             const txnPromise = supabase
               .from('transactions')
               .insert([{
+                reference_no: localRef,
                 type: 'sale',
                 payment_status: paymentStatus,
                 subtotal,
@@ -591,16 +605,35 @@ const initDashboard = async () => {
     try {
       const local = JSON.parse(localStorage.getItem('inv_transactions') || '[]');
       if (Array.isArray(local) && local.length > 0) {
+        let localChanged = false;
         local.forEach(t => {
-          const exists = txns.some(remote =>
-            String(remote.id) === String(t.id) ||
-            (t.supabaseId && String(remote.id) === String(t.supabaseId)) ||
-            (t.ref && remote.reference_no && remote.reference_no === t.ref)
-          );
+          const exists = txns.some(remote => {
+            if (String(remote.id) === String(t.id)) return true;
+            if (t.supabaseId && String(remote.id) === String(t.supabaseId)) return true;
+            if (t.ref && (remote.reference_no === t.ref || remote.ref === t.ref)) return true;
+
+            const rDate = new Date(remote.created_at || remote.date || 0).getTime();
+            const tDate = new Date(t.date || 0).getTime();
+            const timeDiff = Math.abs(rDate - tDate);
+            const sameTotal = Math.abs((Number(remote.total) || 0) - (Number(t.total) || 0)) < 0.01;
+            const sameStatus = (remote.payment_status || remote.status) === (t.paymentStatus || 'paid');
+            const sameNotes = (remote.notes || '').trim() === (t.notes || '').trim();
+
+            if (sameTotal && sameStatus && timeDiff < 300000 && sameNotes) {
+              if (!t.supabaseId || !t.ref) {
+                t.supabaseId = remote.id;
+                t.ref = remote.reference_no;
+                localChanged = true;
+              }
+              return true;
+            }
+            return false;
+          });
+
           if (!exists) {
             txns.push({
               id: t.id,
-              reference_no: `TXN-${String(t.id).slice(-6)}`,
+              reference_no: t.ref || `TXN-${String(t.id).slice(-6)}`,
               customer: t.customer || t.soldTo || '',
               soldTo: t.soldTo || t.customer || '',
               total: t.total,
@@ -612,6 +645,10 @@ const initDashboard = async () => {
             });
           }
         });
+
+        if (localChanged) {
+          try { localStorage.setItem('inv_transactions', JSON.stringify(local)); } catch (e) {}
+        }
       }
     } catch (e) {}
 
@@ -734,7 +771,7 @@ const initDashboard = async () => {
         ref: t.reference_no || `TXN-${String(t.id).slice(0, 6)}`,
         soldTo: soldTo || '—',
         description: t.notes ? t.notes.replace(/\|\s*Sold to:.*$/i, '').trim() : 'Counter Sale',
-        date: t.created_at ? t.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10),
+        date: t.created_at || t.date || new Date().toISOString(),
         amount: Number(t.total) || 0,
         discount: Number(t.discount) || 0,
         status: t.payment_status || 'paid'
@@ -746,7 +783,7 @@ const initDashboard = async () => {
       ref: `EXP-${String(e.id).slice(0, 6)}`,
       soldTo: '—',
       description: e.title || e.category || 'Expense',
-      date: e.expense_date || (e.created_at ? e.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10)),
+      date: e.created_at || e.expense_date || new Date().toISOString(),
       amount: Number(e.amount) || 0,
       discount: 0,
       status: 'recorded'
@@ -1158,7 +1195,7 @@ const initDashboard = async () => {
         <td><span class="badge ${tb.cls}" style="display:inline-flex;align-items:center;gap:5px;font-size:0.72rem;"><i class="fa-solid ${tb.icon}" style="font-size:0.65rem;"></i>${tb.label}</span></td>
         <td style="font-weight:600; color:var(--text-primary);">${t.soldTo || '—'}</td>
         <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${t.description || t.customer || '—'}</td>
-        <td>${t.date}</td>
+        <td>${formatDateWithTime(t.date)}</td>
         <td style="font-weight:700;">${currency(t.amount)}</td>
         <td>
           <span class="badge ${t.status || 'paid'}">
