@@ -5,7 +5,6 @@
  */
 
 import { supabase } from './supabaseClient.js';
-import { cleanLocalTxns } from './checkoutManager.js';
 
 const initDashboard = async () => {
 
@@ -558,6 +557,8 @@ const initDashboard = async () => {
             }
           } catch (err) {
             console.warn('Supabase checkout background sync:', err);
+          } finally {
+            loadDashboard(dateRangeSelect ? dateRangeSelect.value : 'week');
           }
         })();
       });
@@ -596,69 +597,6 @@ const initDashboard = async () => {
       }
     } catch (e) {
       console.warn('Expenses fetch fallback:', e);
-    }
-
-    // Deduplicate local transactions first
-    cleanLocalTxns();
-
-    // Always merge any recent/local transactions not yet returned by Supabase
-    try {
-      const local = JSON.parse(localStorage.getItem('inv_transactions') || '[]');
-      if (Array.isArray(local) && local.length > 0) {
-        let localChanged = false;
-        local.forEach(t => {
-          const exists = txns.some(remote => {
-            if (String(remote.id) === String(t.id)) return true;
-            if (t.supabaseId && String(remote.id) === String(t.supabaseId)) return true;
-            if (t.ref && (remote.reference_no === t.ref || remote.ref === t.ref)) return true;
-
-            const rDate = new Date(remote.created_at || remote.date || 0).getTime();
-            const tDate = new Date(t.date || 0).getTime();
-            const timeDiff = Math.abs(rDate - tDate);
-            const sameTotal = Math.abs((Number(remote.total) || 0) - (Number(t.total) || 0)) < 0.01;
-            const sameStatus = (remote.payment_status || remote.status) === (t.paymentStatus || 'paid');
-            const sameNotes = (remote.notes || '').trim() === (t.notes || '').trim();
-
-            if (sameTotal && sameStatus && timeDiff < 300000 && sameNotes) {
-              if (!t.supabaseId || !t.ref) {
-                t.supabaseId = remote.id;
-                t.ref = remote.reference_no;
-                localChanged = true;
-              }
-              return true;
-            }
-            return false;
-          });
-
-          if (!exists) {
-            txns.push({
-              id: t.id,
-              reference_no: t.ref || `TXN-${String(t.id).slice(-6)}`,
-              customer: t.customer || t.soldTo || '',
-              soldTo: t.soldTo || t.customer || '',
-              total: t.total,
-              discount: t.discount || 0,
-              partial: t.partial || 0,
-              payment_status: t.paymentStatus || 'paid',
-              notes: t.notes || (t.productName ? `${t.productName} (x${t.qty})` : 'Sale'),
-              created_at: t.date || new Date().toISOString()
-            });
-          }
-        });
-
-        if (localChanged) {
-          try { localStorage.setItem('inv_transactions', JSON.stringify(local)); } catch (e) {}
-        }
-      }
-    } catch (e) {}
-
-    if (expenses.length === 0) {
-      try {
-        const localExp = JSON.parse(localStorage.getItem('inv_expenses_data') || '[]');
-        if (Array.isArray(localExp) && localExp.length > 0) {
-          expenses = localExp;
-        }
-      } catch (e) {}
     }
 
     // Filter out any deleted transactions or expenses from persistent registry
