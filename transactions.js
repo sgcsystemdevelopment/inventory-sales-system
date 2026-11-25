@@ -480,7 +480,7 @@ const initTransactions = async () => {
     let subtotal = 0;
     if (selectedType === 'expense') {
       subtotal = filtered.reduce((s, r) => s + (Number(r.amount) || 0), 0);
-    } else if (selectedType === 'sale' || selectedType === 'unpaid') {
+    } else if (selectedType === 'sale' || selectedType === 'unpaid' || selectedType === 'paid') {
       subtotal = filtered.reduce((s, r) => s + (Number(r.amount) || 0), 0);
     } else {
       const salesSum = filtered.filter(r => r.type === 'sale').reduce((s, r) => s + (Number(r.amount) || 0), 0);
