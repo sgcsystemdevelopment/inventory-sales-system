@@ -961,7 +961,9 @@ const initTransactions = async () => {
     (async () => {
       try {
         const isUUID = (id) => typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-        const targetId = record._raw?.id || record.id;
+        const targetId = record._raw?.id || (isUUID(record.id) ? record.id : null);
+        const refVal = record.ref || record.reference_no || record._raw?.reference_no;
+
         if (isSale) {
           const items = Array.isArray(record.items) && record.items.length > 0
             ? record.items
@@ -969,8 +971,24 @@ const initTransactions = async () => {
 
           for (const it of items) {
             const qty = Number(it.quantity) || 0;
-            const stockId = it.stock_item_id;
-            if (qty > 0 && stockId && isUUID(stockId)) {
+            if (qty <= 0) continue;
+            let stockId = it.stock_item_id && isUUID(it.stock_item_id) ? it.stock_item_id : null;
+            if (!stockId && it.product_name) {
+              try {
+                const { data: stFound } = await supabase
+                  .from('stock_items')
+                  .select('id, quantity')
+                  .eq('name', it.product_name)
+                  .maybeSingle();
+                if (stFound) {
+                  stockId = stFound.id;
+                  const restoredQty = (Number(stFound.quantity) || 0) + qty;
+                  await supabase.from('stock_items').update({ quantity: restoredQty }).eq('id', stockId);
+                  continue;
+                }
+              } catch(e) {}
+            }
+            if (stockId) {
               try {
                 const { data: stData } = await supabase.from('stock_items').select('quantity').eq('id', stockId).single();
                 if (stData) {
@@ -980,13 +998,48 @@ const initTransactions = async () => {
               } catch(e) {}
             }
           }
-          if (isUUID(targetId)) {
-            await supabase.from('transaction_items').delete().eq('transaction_id', targetId);
-            await supabase.from('transactions').delete().eq('id', targetId);
+
+          let txnUUID = isUUID(targetId) ? targetId : null;
+          if (!txnUUID && refVal) {
+            try {
+              const { data: foundRemote } = await supabase
+                .from('transactions')
+                .select('id')
+                .eq('reference_no', refVal)
+                .maybeSingle();
+              if (foundRemote && isUUID(foundRemote.id)) {
+                txnUUID = foundRemote.id;
+              }
+            } catch(e) {}
+          }
+
+          if (txnUUID) {
+            await supabase.from('transaction_items').delete().eq('transaction_id', txnUUID);
+            const { error: delErr } = await supabase.from('transactions').delete().eq('id', txnUUID);
+            if (delErr) console.warn('Supabase delete transaction error by id:', delErr);
+          }
+          if (refVal) {
+            await supabase.from('transactions').delete().eq('reference_no', refVal);
           }
         } else {
-          if (isUUID(targetId)) {
-            await supabase.from('expenses').delete().eq('id', targetId);
+          let expUUID = isUUID(targetId) ? targetId : null;
+          if (!expUUID && record.description) {
+            try {
+              const { data: foundExp } = await supabase
+                .from('expenses')
+                .select('id')
+                .eq('title', record.description)
+                .maybeSingle();
+              if (foundExp && isUUID(foundExp.id)) {
+                expUUID = foundExp.id;
+              }
+            } catch(e) {}
+          }
+          if (expUUID) {
+            const { error: expErr } = await supabase.from('expenses').delete().eq('id', expUUID);
+            if (expErr) console.warn('Supabase delete expense error by id:', expErr);
+          } else if (record.description) {
+            await supabase.from('expenses').delete().eq('title', record.description);
           }
         }
       } catch (e) {

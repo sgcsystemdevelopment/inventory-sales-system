@@ -672,7 +672,26 @@ const initInventory = async () => {
       showToast(`Stock item "${found.name}" removed from inventory.`, 'danger');
 
       try {
-        await supabase.from('stock_items').delete().eq('id', id);
+        const isUUID = (val) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+        if (isUUID(id)) {
+          await supabase.from('restock_history').delete().eq('stock_item_id', id);
+          await supabase.from('transaction_items').update({ stock_item_id: null }).eq('stock_item_id', id);
+          const { error } = await supabase.from('stock_items').delete().eq('id', id);
+          if (error) console.warn('Supabase stock delete error:', error);
+        } else {
+          let q = supabase.from('stock_items').select('id').eq('name', found.name);
+          if (found.batch) q = q.eq('batch', found.batch);
+          const { data: remoteStock } = await q.maybeSingle();
+          if (remoteStock && isUUID(remoteStock.id)) {
+            await supabase.from('restock_history').delete().eq('stock_item_id', remoteStock.id);
+            await supabase.from('transaction_items').update({ stock_item_id: null }).eq('stock_item_id', remoteStock.id);
+            await supabase.from('stock_items').delete().eq('id', remoteStock.id);
+          } else {
+            let delQ = supabase.from('stock_items').delete().eq('name', found.name);
+            if (found.batch) delQ = delQ.eq('batch', found.batch);
+            await delQ;
+          }
+        }
       } catch (err) {
         console.warn('Supabase stock delete fallback:', err);
       }
@@ -996,6 +1015,321 @@ const initInventory = async () => {
       chargeInp.addEventListener('input', updateCheckoutSummary);
     }
 
+    let _pendingCreditCheckout = null;
+
+    function openCreditPartialModal(data) {
+      _pendingCreditCheckout = data;
+      const cpModal = document.getElementById('creditPartialModal');
+      const cpTotal = document.getElementById('cpModalTotalCredit');
+      const cpSoldTo = document.getElementById('cpModalSoldTo');
+      const cpInput = document.getElementById('cpPartialPaymentInput');
+      const cpPaid = document.getElementById('cpPaidAmount');
+      const cpUnpaid = document.getElementById('cpUnpaidAmount');
+
+      if (cpTotal) cpTotal.textContent = fmtPeso(data.total);
+      if (cpSoldTo) cpSoldTo.textContent = data.soldToVal || '—';
+      if (cpInput) {
+        cpInput.value = '';
+        cpInput.max = data.total;
+      }
+      if (cpPaid) cpPaid.textContent = fmtPeso(0);
+      if (cpUnpaid) cpUnpaid.textContent = fmtPeso(data.total);
+
+      if (checkoutModal) checkoutModal.classList.remove('active');
+      if (cpModal) cpModal.classList.add('active');
+    }
+
+    function closeCreditPartialModal(returnToCheckout = false) {
+      const cpModal = document.getElementById('creditPartialModal');
+      if (cpModal) cpModal.classList.remove('active');
+      if (returnToCheckout) {
+        if (checkoutModal) checkoutModal.classList.add('active');
+      } else {
+        _pendingCreditCheckout = null;
+        closeCheckoutModal();
+      }
+    }
+
+    function updateCreditPartialCalculation() {
+      if (!_pendingCreditCheckout) return;
+      const total = _pendingCreditCheckout.total;
+      const cpInput = document.getElementById('cpPartialPaymentInput');
+      const cpPaid = document.getElementById('cpPaidAmount');
+      const cpUnpaid = document.getElementById('cpUnpaidAmount');
+
+      let val = parseFloat(cpInput ? cpInput.value : 0) || 0;
+      if (val < 0) val = 0;
+      if (val > total) val = total;
+      const paid = val;
+      const unpaid = Math.max(0, total - paid);
+
+      if (cpPaid) cpPaid.textContent = fmtPeso(paid);
+      if (cpUnpaid) cpUnpaid.textContent = fmtPeso(unpaid);
+    }
+
+    const proceedCpBtn = document.getElementById('proceedCreditPartialBtn');
+    const cancelCpBtn = document.getElementById('cancelCreditPartialBtn');
+    const closeCpBtn = document.getElementById('closeCreditPartialBtn');
+    const cpOverlay = document.getElementById('creditPartialModalOverlay');
+    const cpInput = document.getElementById('cpPartialPaymentInput');
+
+    if (cpInput) cpInput.addEventListener('input', updateCreditPartialCalculation);
+    if (cancelCpBtn) cancelCpBtn.addEventListener('click', () => closeCreditPartialModal(true));
+    if (closeCpBtn) closeCpBtn.addEventListener('click', () => closeCreditPartialModal(true));
+    if (cpOverlay) cpOverlay.addEventListener('click', () => closeCreditPartialModal(true));
+
+    if (proceedCpBtn) {
+      proceedCpBtn.addEventListener('click', () => {
+        if (!_pendingCreditCheckout) return;
+        const data = _pendingCreditCheckout;
+        const total = data.total;
+        let rawVal = parseFloat(cpInput ? cpInput.value : 0) || 0;
+        if (rawVal < 0) rawVal = 0;
+        if (rawVal > total) rawVal = total;
+        const partialAmt = rawVal;
+        const remainingAmt = Math.max(0, total - partialAmt);
+
+        executeFinalCheckout({
+          ...data,
+          isCredit: true,
+          partialAmt,
+          remainingAmt
+        });
+        closeCreditPartialModal(false);
+      });
+    }
+
+    function executeFinalCheckout(data) {
+      const {
+        qty, price, subtotal, discountAmt, chargeAmt, total,
+        soldToVal, customerNote, itemName, checkoutItemId, checkoutItemBatch,
+        idx, all, isCredit, partialAmt, remainingAmt
+      } = data;
+
+      // 1. Instant local stock deduction
+      if (idx !== -1) {
+        all[idx].stocks = Math.max(0, Number(all[idx].stocks) - qty);
+        all[idx].updatedAt = new Date().toISOString();
+        syncLocal(all);
+      }
+
+      const nowIso = new Date().toISOString();
+      const baseDate = nowIso.slice(0, 10).replace(/-/g, '');
+      let txns = [];
+      try { txns = JSON.parse(localStorage.getItem('inv_transactions') || '[]'); } catch (e) {}
+
+      // Dual recording if partial payment is made for credit
+      if (isCredit && partialAmt > 0 && remainingAmt > 0) {
+        const localTxnId1 = Date.now();
+        const localRef1 = 'TXN-' + baseDate + '-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+        const note1 = (chargeAmt > 0 ? `Credit Sale - Downpayment (Charge: ₱${chargeAmt.toFixed(2)})` : 'Credit Sale - Downpayment') + ` (Paid: ₱${partialAmt.toFixed(2)} of ₱${total.toFixed(2)})` + customerNote;
+
+        const localTxnId2 = localTxnId1 + 5;
+        const localRef2 = 'TXN-' + baseDate + '-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+        const note2 = 'Credit Sale - Remaining Balance' + ` (Unpaid: ₱${remainingAmt.toFixed(2)} of ₱${total.toFixed(2)})` + customerNote;
+
+        // Remaining balance recorded as UNPAID
+        txns.unshift({
+          id: localTxnId2,
+          ref: localRef2,
+          date: nowIso,
+          productId: checkoutItemId,
+          productName: itemName,
+          batch: checkoutItemBatch,
+          customer: soldToVal,
+          soldTo: soldToVal,
+          qty,
+          unitPrice: price,
+          subtotal: remainingAmt,
+          discount: 0,
+          charge: chargeAmt,
+          total: remainingAmt,
+          type: 'sale',
+          paymentStatus: 'unpaid',
+          payMode: 'credit',
+          notes: note2
+        });
+
+        // Partial payment recorded as PAID
+        txns.unshift({
+          id: localTxnId1,
+          ref: localRef1,
+          date: nowIso,
+          productId: checkoutItemId,
+          productName: itemName,
+          batch: checkoutItemBatch,
+          customer: soldToVal,
+          soldTo: soldToVal,
+          qty,
+          unitPrice: price,
+          subtotal: partialAmt,
+          discount: 0,
+          charge: 0,
+          total: partialAmt,
+          type: 'sale',
+          paymentStatus: 'paid',
+          payMode: 'credit',
+          notes: note1
+        });
+
+        localStorage.setItem('inv_transactions', JSON.stringify(txns));
+
+        closeCheckoutModal();
+        renderSidebarStocks();
+        renderTable();
+        updateSummaryCards();
+        showToast(`Credit checkout done! Paid: ${fmtPeso(partialAmt)} | Unpaid: ${fmtPeso(remainingAmt)}`);
+
+        // Background sync to Supabase
+        (async () => {
+          try {
+            const isStkLocalId = String(checkoutItemId).startsWith('stk_');
+            const txn1Promise = supabase.from('transactions').insert([{
+              reference_no: localRef1,
+              type: 'sale',
+              payment_status: 'paid',
+              subtotal: partialAmt,
+              discount: 0,
+              total: partialAmt,
+              notes: note1
+            }]).select().single();
+
+            const txn2Promise = supabase.from('transactions').insert([{
+              reference_no: localRef2,
+              type: 'sale',
+              payment_status: 'unpaid',
+              subtotal: remainingAmt,
+              discount: 0,
+              total: remainingAmt,
+              notes: note2
+            }]).select().single();
+
+            const stockPromise = (!isStkLocalId && idx !== -1)
+              ? supabase.from('stock_items').update({ quantity: all[idx].stocks }).eq('id', checkoutItemId)
+              : Promise.resolve();
+
+            const [{ data: dbTxn1 }, { data: dbTxn2 }] = await Promise.all([txn1Promise, txn2Promise, stockPromise]);
+
+            if (dbTxn1) {
+              await supabase.from('transaction_items').insert([{
+                transaction_id: dbTxn1.id,
+                stock_item_id: isStkLocalId ? null : checkoutItemId,
+                product_name: itemName + ' (Downpayment)',
+                batch: checkoutItemBatch,
+                unit_price: partialAmt,
+                quantity: 1,
+                item_discount: 0
+              }]);
+            }
+            if (dbTxn2) {
+              await supabase.from('transaction_items').insert([{
+                transaction_id: dbTxn2.id,
+                stock_item_id: isStkLocalId ? null : checkoutItemId,
+                product_name: itemName + ' (Remaining Balance)',
+                batch: checkoutItemBatch,
+                unit_price: remainingAmt,
+                quantity: 1,
+                item_discount: 0
+              }]);
+            }
+          } catch (err) {
+            console.warn('Supabase credit partial background sync:', err);
+          }
+        })();
+        return;
+      }
+
+      // Single transaction
+      const isFullPaidCredit = isCredit && partialAmt >= total;
+      const paymentStatus = isCredit ? (isFullPaidCredit ? 'paid' : 'unpaid') : 'paid';
+      const notes = isCredit
+        ? (isFullPaidCredit
+            ? 'Credit Sale - Paid in Full'
+            : (chargeAmt > 0 ? `Credit Sale (Charge: ₱${chargeAmt.toFixed(2)})` : 'Credit Sale')) + customerNote
+        : (discountAmt > 0 ? `Cash Sale (Discount: ₱${discountAmt.toFixed(2)})` : 'Cash Sale') + customerNote;
+
+      const localTxnId = Date.now();
+      const localRef = 'TXN-' + baseDate + '-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+
+      txns.unshift({
+        id: localTxnId,
+        ref: localRef,
+        date: nowIso,
+        productId: checkoutItemId,
+        productName: itemName,
+        batch: checkoutItemBatch,
+        customer: soldToVal,
+        soldTo: soldToVal,
+        qty,
+        unitPrice: price,
+        subtotal,
+        discount: discountAmt,
+        charge: chargeAmt,
+        total,
+        type: 'sale',
+        paymentStatus,
+        payMode: isCredit ? 'credit' : 'cash',
+        notes
+      });
+      localStorage.setItem('inv_transactions', JSON.stringify(txns));
+
+      const modeLabel = isCredit ? (isFullPaidCredit ? 'Credit (Paid)' : 'Credit (Unpaid)') : 'Cash';
+      closeCheckoutModal();
+      renderSidebarStocks();
+      renderTable();
+      updateSummaryCards();
+      showToast(`Checkout done! ${itemName} ×${qty} — ${fmtPeso(total)} (${modeLabel})`);
+
+      (async () => {
+        try {
+          const isStkLocalId = String(checkoutItemId).startsWith('stk_');
+          const txnPromise = supabase
+            .from('transactions')
+            .insert([{
+              reference_no: localRef,
+              type: 'sale',
+              payment_status: paymentStatus,
+              subtotal,
+              discount: discountAmt,
+              total,
+              notes
+            }])
+            .select()
+            .single();
+
+          const stockPromise = (!isStkLocalId && idx !== -1)
+            ? supabase.from('stock_items').update({ quantity: all[idx].stocks }).eq('id', checkoutItemId)
+            : Promise.resolve();
+
+          const [{ data: txn, error: txnErr }] = await Promise.all([txnPromise, stockPromise]);
+
+          if (txn && !txnErr) {
+            try {
+              let curTxns = JSON.parse(localStorage.getItem('inv_transactions') || '[]');
+              const tIdx = curTxns.findIndex(t => String(t.id) === String(localTxnId));
+              if (tIdx !== -1) {
+                curTxns[tIdx].supabaseId = txn.id;
+                curTxns[tIdx].ref = txn.reference_no;
+                localStorage.setItem('inv_transactions', JSON.stringify(curTxns));
+              }
+            } catch(e) {}
+
+            await supabase.from('transaction_items').insert([{
+              transaction_id: txn.id,
+              stock_item_id: isStkLocalId ? null : checkoutItemId,
+              product_name: itemName,
+              batch: checkoutItemBatch,
+              unit_price: price,
+              quantity: qty,
+              item_discount: discountAmt
+            }]);
+          }
+        } catch (err) {
+          console.warn('Supabase checkout background sync:', err);
+        }
+      })();
+    }
+
     if (confirmBtn) {
       let _isCheckingOut = false;
       confirmBtn.addEventListener('click', async () => {
@@ -1006,7 +1340,6 @@ const initInventory = async () => {
         const price = Number(_checkoutItem.price) || 0;
         const subtotal = qty * price;
         const isCredit = _payMode === 'credit';
-        const paymentStatus = isCredit ? 'unpaid' : 'paid';
 
         let discountAmt = 0;
         let chargeAmt = 0;
@@ -1028,115 +1361,43 @@ const initInventory = async () => {
           return;
         }
 
-        // 1. Instant local stock deduction
         const all = [...getStocks()];
         const idx = all.findIndex(s => String(s.id) === String(_checkoutItem.id));
-        if (idx !== -1) {
-          all[idx].stocks = Math.max(0, Number(all[idx].stocks) - qty);
-          all[idx].updatedAt = new Date().toISOString();
-          syncLocal(all);
-        }
-
-        // 2. Instant local transaction log
         const soldToVal = (document.getElementById('coSoldToInput')?.value || '').trim();
         const customerNote = soldToVal ? ` | Sold to: ${soldToVal}` : '';
-        const notes = (isCredit 
-          ? (chargeAmt > 0 ? `Credit Sale (Charge: ₱${chargeAmt.toFixed(2)})` : 'Credit Sale')
-          : (discountAmt > 0 ? `Cash Sale (Discount: ₱${discountAmt.toFixed(2)})` : 'Cash Sale')) + customerNote;
-
-        const localTxnId = Date.now();
-        const localRef = 'TXN-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-        let txns = [];
-        try { txns = JSON.parse(localStorage.getItem('inv_transactions') || '[]'); } catch (e) {}
-        txns.unshift({
-          id: localTxnId,
-          ref: localRef,
-          date: new Date().toISOString(),
-          productId: _checkoutItem.id,
-          productName: _checkoutItem.name,
-          batch: _checkoutItem.batch || '',
-          customer: soldToVal,
-          soldTo: soldToVal,
-          qty,
-          unitPrice: price,
-          subtotal,
-          discount: discountAmt,
-          charge: chargeAmt,
-          total,
-          type: 'sale',
-          paymentStatus,
-          payMode: _payMode,
-          notes
-        });
-        localStorage.setItem('inv_transactions', JSON.stringify(txns));
-
-        // 3. Instant UI feedback & Modal close (0ms delay)
         const itemName = _checkoutItem.name;
         const checkoutItemId = _checkoutItem.id;
         const checkoutItemBatch = _checkoutItem.batch || '';
-        const modeLabel = isCredit ? 'Credit' : 'Cash';
 
-        closeCheckoutModal();
-        renderSidebarStocks();
-        renderTable();
-        updateSummaryCards();
-        showToast(`Checkout done! ${itemName} ×${qty} — ${fmtPeso(total)} (${modeLabel})`);
+        const checkoutData = {
+          qty, price, subtotal, discountAmt, chargeAmt, total,
+          soldToVal, customerNote, itemName, checkoutItemId, checkoutItemBatch,
+          idx, all
+        };
 
-        // 4. Non-blocking background sync to Supabase
-        (async () => {
-          try {
-            const isStkLocalId = String(checkoutItemId).startsWith('stk_');
-            const txnPromise = supabase
-              .from('transactions')
-              .insert([{
-                reference_no: localRef,
-                type: 'sale',
-                payment_status: paymentStatus,
-                subtotal,
-                discount: discountAmt,
-                total,
-                notes
-              }])
-              .select()
-              .single();
+        if (isCredit) {
+          openCreditPartialModal(checkoutData);
+          return;
+        }
 
-            const stockPromise = (!isStkLocalId && idx !== -1)
-              ? supabase.from('stock_items').update({ quantity: all[idx].stocks }).eq('id', checkoutItemId)
-              : Promise.resolve();
-
-            const [{ data: txn, error: txnErr }] = await Promise.all([txnPromise, stockPromise]);
-
-            if (txn && !txnErr) {
-              // Update local transaction with remote Supabase ID & ref to prevent duplicate inputs
-              try {
-                let curTxns = JSON.parse(localStorage.getItem('inv_transactions') || '[]');
-                const tIdx = curTxns.findIndex(t => String(t.id) === String(localTxnId));
-                if (tIdx !== -1) {
-                  curTxns[tIdx].supabaseId = txn.id;
-                  curTxns[tIdx].ref = txn.reference_no;
-                  localStorage.setItem('inv_transactions', JSON.stringify(curTxns));
-                }
-              } catch(e) {}
-
-              await supabase.from('transaction_items').insert([{
-                transaction_id: txn.id,
-                stock_item_id: isStkLocalId ? null : checkoutItemId,
-                product_name: itemName,
-                batch: checkoutItemBatch,
-                unit_price: price,
-                quantity: qty,
-                item_discount: discountAmt
-              }]);
-            }
-          } catch (err) {
-            console.warn('Supabase checkout background sync:', err);
-          }
-        })();
+        executeFinalCheckout({
+          ...checkoutData,
+          isCredit: false,
+          partialAmt: 0,
+          remainingAmt: 0
+        });
       });
     }
 
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && checkoutModal.classList.contains('active')) closeCheckoutModal();
+      if (e.key === 'Escape') {
+        const cpModal = document.getElementById('creditPartialModal');
+        if (cpModal && cpModal.classList.contains('active')) {
+          closeCreditPartialModal(true);
+        } else if (checkoutModal && checkoutModal.classList.contains('active')) {
+          closeCheckoutModal();
+        }
+      }
     });
   }
 

@@ -456,6 +456,55 @@
     </div>
   </div>
 
+  <!-- ===================== CREDIT PARTIAL PAYMENT MODAL ===================== -->
+  <div class="stock-modal" id="creditPartialModal" role="dialog" aria-modal="true">
+    <div class="stock-modal-overlay" id="creditPartialModalOverlay"></div>
+    <div class="stock-modal-card" style="max-width:460px; padding:0 0 1.5rem;">
+      <div class="checkout-header-centered">
+        <h3>Credit Downpayment</h3>
+        <p>Enter partial payment for this credit sale or leave 0 for full credit</p>
+        <button class="modal-close-icon-btn" id="closeCreditPartialBtn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="checkout-form-body" style="padding:1.25rem 1.5rem 0;">
+        <div style="background:var(--bg-body, #f8fafc); border:1px solid var(--border-color, #e2e8f0); border-radius:10px; padding:1rem; margin-bottom:1.25rem;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem; font-size:0.9rem;">
+            <span style="color:var(--text-secondary);">Total Credit:</span>
+            <strong id="cpModalTotalCredit" style="color:var(--text-primary); font-size:1.05rem;">₱0.00</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:0.85rem;" id="cpModalSoldToRow">
+            <span style="color:var(--text-secondary);">Sold To:</span>
+            <span id="cpModalSoldTo" style="font-weight:600; color:var(--text-primary);">—</span>
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label for="cpPartialPaymentInput">Partial Payment (₱)</label>
+          <div class="form-input-wrapper">
+            <i class="fa-solid fa-hand-holding-dollar field-icon"></i>
+            <input type="number" id="cpPartialPaymentInput" min="0" step="0.01" placeholder="Enter partial payment (₱) (e.g. 500)">
+          </div>
+        </div>
+
+        <div class="checkout-summary-box" style="margin-top:1rem;">
+          <div class="co-summary-row" style="color:#10b981; font-weight:600;">
+            <span>Paid (Recorded as Paid)</span>
+            <span id="cpPaidAmount">₱0.00</span>
+          </div>
+          <div class="co-summary-row" style="color:#ef4444; font-weight:600;">
+            <span>Remaining Balance (Recorded as Unpaid)</span>
+            <span id="cpUnpaidAmount">₱0.00</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-btn-actions" style="padding:0 1.5rem 0; margin-top:1.25rem;">
+        <button type="button" class="btn-modal-cancel" id="cancelCreditPartialBtn">Cancel</button>
+        <button type="button" class="btn-modal-submit" id="proceedCreditPartialBtn">
+          <i class="fa-solid fa-arrow-right"></i> Proceed
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- DELETE CONFIRMATION MODAL -->
   <div class="stock-modal" id="deleteConfirmModal" role="dialog" aria-modal="true">
     <div class="stock-modal-overlay" id="deleteModalOverlay"></div>
