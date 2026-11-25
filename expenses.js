@@ -179,8 +179,6 @@ const initExpenses = async () => {
     const discountRow = document.getElementById('summaryDiscountRow');
     const chargeValEl = document.getElementById('coCharge');
     const discValEl = document.getElementById('coDiscount');
-    const partialValEl = document.getElementById('coPartial');
-    const partialRow = document.getElementById('summaryPartialRow');
     const totalLabelEl = document.getElementById('coTotalLabel');
     const totalEl = document.getElementById('coGrandTotal');
     if (_payMode === 'credit') {
@@ -189,21 +187,9 @@ const initExpenses = async () => {
       const total = subtotal + chargeAmt;
       if (chargeRow) chargeRow.style.display = 'flex';
       if (discountRow) discountRow.style.display = 'none';
-      if (partialRow) partialRow.style.display = 'none';
       if (chargeValEl) chargeValEl.textContent = '+' + currencyFmt(chargeAmt);
       if (totalLabelEl) totalLabelEl.textContent = 'Total (Credit)';
       if (totalEl) totalEl.textContent = currencyFmt(total);
-    } else if (_payMode === 'partial') {
-      const partialInp = document.getElementById('coPartialInput');
-      const rawPartial = Math.max(0, parseFloat(partialInp ? partialInp.value : 0) || 0);
-      const partialAmt = Math.min(rawPartial, subtotal);
-      const remainingCredit = Math.max(0, subtotal - partialAmt);
-      if (chargeRow) chargeRow.style.display = 'none';
-      if (discountRow) discountRow.style.display = 'none';
-      if (partialRow) partialRow.style.display = 'flex';
-      if (partialValEl) partialValEl.textContent = '-' + currencyFmt(partialAmt);
-      if (totalLabelEl) totalLabelEl.textContent = 'Remaining Unpaid';
-      if (totalEl) totalEl.textContent = currencyFmt(remainingCredit);
     } else {
       const discInp = document.getElementById('coDiscountInput');
       const discVal = Math.max(0, parseFloat(discInp ? discInp.value : 0) || 0);
@@ -211,7 +197,6 @@ const initExpenses = async () => {
       const total = Math.max(0, subtotal - discountAmt);
       if (chargeRow) chargeRow.style.display = 'none';
       if (discountRow) discountRow.style.display = 'flex';
-      if (partialRow) partialRow.style.display = 'none';
       if (discValEl) discValEl.textContent = '-' + currencyFmt(discountAmt);
       if (totalLabelEl) totalLabelEl.textContent = 'Total';
       if (totalEl) totalEl.textContent = currencyFmt(total);
@@ -222,17 +207,13 @@ const initExpenses = async () => {
     _payMode = mode;
     const payModeCash    = document.getElementById('payModeCash');
     const payModeCredit  = document.getElementById('payModeCredit');
-    const payModePartial = document.getElementById('payModePartial');
     const cashSection    = document.getElementById('cashSection');
     const creditSection  = document.getElementById('creditSection');
-    const partialSection = document.getElementById('partialSection');
     if (payModeCash)    payModeCash.classList.toggle('active', mode === 'cash');
     if (payModeCredit)  payModeCredit.classList.toggle('active', mode === 'credit');
-    if (payModePartial) payModePartial.classList.toggle('active', mode === 'partial');
 
     if (cashSection)    cashSection.style.display = mode === 'cash' ? 'block' : 'none';
     if (creditSection)  creditSection.style.display = mode === 'credit' ? 'block' : 'none';
-    if (partialSection) partialSection.style.display = mode === 'partial' ? 'block' : 'none';
     updateCheckoutSummary();
   }
 
@@ -256,8 +237,6 @@ const initExpenses = async () => {
     if (discInp)   discInp.value = '';
     const chargeInp = document.getElementById('coChargeInput');
     if (chargeInp) chargeInp.value = '';
-    const partialInp = document.getElementById('coPartialInput');
-    if (partialInp) partialInp.value = '';
     const soldToInp = document.getElementById('coSoldToInput');
     if (soldToInp) soldToInp.value = '';
     const minusBtn  = document.getElementById('coQtyMinus');
@@ -774,21 +753,16 @@ const initExpenses = async () => {
     const coQtyInp      = document.getElementById('coQtyInput');
     const coDiscInp     = document.getElementById('coDiscountInput');
     const coChargeInp   = document.getElementById('coChargeInput');
-    const coPartialInp  = document.getElementById('coPartialInput');
     const coApplyDisc   = document.getElementById('btnApplyDiscount');
     const coApplyCharge = document.getElementById('btnApplyCharge');
-    const coApplyPartial = document.getElementById('btnApplyPartial');
     const coPayCash     = document.getElementById('payModeCash');
     const coPayCredit   = document.getElementById('payModeCredit');
-    const coPayPartial  = document.getElementById('payModePartial');
     const coConfirmBtn  = document.getElementById('confirmCheckoutBtn');
 
     if (coPayCash)    coPayCash.addEventListener('click', () => setPayMode('cash'));
     if (coPayCredit)  coPayCredit.addEventListener('click', () => setPayMode('credit'));
-    if (coPayPartial) coPayPartial.addEventListener('click', () => setPayMode('partial'));
     if (coApplyDisc)    coApplyDisc.addEventListener('click', () => { updateCheckoutSummary(); showToast('Discount applied to summary'); });
     if (coApplyCharge)  coApplyCharge.addEventListener('click', () => { updateCheckoutSummary(); showToast('Charge added to summary'); });
-    if (coApplyPartial) coApplyPartial.addEventListener('click', () => { updateCheckoutSummary(); showToast('Partial payment applied to summary'); });
 
     if (coMinusBtn) {
       coMinusBtn.addEventListener('click', () => {
@@ -822,7 +796,6 @@ const initExpenses = async () => {
     }
     if (coDiscInp)    coDiscInp.addEventListener('input', updateCheckoutSummary);
     if (coChargeInp)  coChargeInp.addEventListener('input', updateCheckoutSummary);
-    if (coPartialInp) coPartialInp.addEventListener('input', updateCheckoutSummary);
 
     if (coConfirmBtn) {
       let _isCheckingOut = false;
@@ -834,16 +807,11 @@ const initExpenses = async () => {
         const price     = Number(_checkoutItem.price) || 0;
         const subtotal  = qty * price;
         const isCredit  = _payMode === 'credit';
-        const isPartial = _payMode === 'partial';
-        const paymentStatus = (isCredit || isPartial) ? 'unpaid' : 'paid';
-        let discountAmt = 0, chargeAmt = 0, partialAmt = 0, total = subtotal;
+        const paymentStatus = isCredit ? 'unpaid' : 'paid';
+        let discountAmt = 0, chargeAmt = 0, total = subtotal;
         if (isCredit) {
           chargeAmt = Math.max(0, parseFloat(coChargeInp ? coChargeInp.value : 0) || 0);
           total = subtotal + chargeAmt;
-        } else if (isPartial) {
-          const rawPartial = Math.max(0, parseFloat(coPartialInp ? coPartialInp.value : 0) || 0);
-          partialAmt = Math.min(rawPartial, subtotal);
-          total = Math.max(0, subtotal - partialAmt);
         } else {
           const rawDisc = Math.max(0, parseFloat(coDiscInp ? coDiscInp.value : 0) || 0);
           discountAmt = Math.min(rawDisc, subtotal);
@@ -870,8 +838,6 @@ const initExpenses = async () => {
         const customerNote = soldToVal ? ` | Sold to: ${soldToVal}` : '';
         const notes = (isCredit
           ? (chargeAmt > 0 ? `Credit Sale (Charge: ₱${chargeAmt.toFixed(2)})` : 'Credit Sale')
-          : isPartial
-          ? `Partial Sale (Paid: ₱${partialAmt.toFixed(2)}, Remaining Balance: ₱${total.toFixed(2)})`
           : (discountAmt > 0 ? `Cash Sale (Discount: ₱${discountAmt.toFixed(2)})` : 'Cash Sale')) + customerNote;
 
         const localTxnId = Date.now();
@@ -892,7 +858,6 @@ const initExpenses = async () => {
           subtotal,
           discount: discountAmt,
           charge: chargeAmt,
-          partial: partialAmt,
           total,
           type: 'sale',
           paymentStatus,
@@ -905,7 +870,7 @@ const initExpenses = async () => {
         const itemName = _checkoutItem.name;
         const checkoutItemId = _checkoutItem.id;
         const checkoutItemBatch = _checkoutItem.batch || '';
-        const modeLabel = isCredit ? 'Credit' : isPartial ? 'Partial' : 'Cash';
+        const modeLabel = isCredit ? 'Credit' : 'Cash';
 
         closeCheckoutModal();
         renderSidebarStocks();
